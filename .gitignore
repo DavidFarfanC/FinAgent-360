@@ -29,7 +29,9 @@ Thumbs.db
 .eslintcache
 .turbo
 .idea/
-.vscode/
+# VS Code — ignore personal files, share project settings
+.vscode/*
+!.vscode/settings.json
 
 # Claude Code
 .claude/
