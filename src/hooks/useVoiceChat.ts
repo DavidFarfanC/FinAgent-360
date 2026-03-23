@@ -170,17 +170,53 @@ export function useVoiceChat({ onTranscript }: UseVoiceChatOptions): UseVoiceCha
 
     window.speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(clean);
-    utterance.lang = 'es-MX';
-    utterance.rate = 1.05;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
+    // DEBUG: log available voices before any selection
+    console.log('Voces disponibles:', window.speechSynthesis.getVoices().map((v) => v.name + ' ' + v.lang));
 
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
+    const speakWithVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+      console.log('Voces en speakWithVoice:', voices.map((v) => v.name + ' ' + v.lang));
 
-    window.speechSynthesis.speak(utterance);
+      const maleVoice = voices.find(
+        (v) =>
+          v.name === 'Google español de Estados Unidos' ||
+          v.name === 'Google español'
+      );
+
+      console.log('Voz masculina seleccionada:', maleVoice ? maleVoice.name + ' ' + maleVoice.lang : 'ninguna — usando pitch 0.8');
+
+      // Create utterance inside setVoice so voice is assigned before speak()
+      const utterance = new SpeechSynthesisUtterance(clean);
+      utterance.lang = 'es-MX';
+      if (maleVoice) utterance.voice = maleVoice;
+      utterance.pitch = 0.8;
+      utterance.rate = 0.95;
+      utterance.volume = 1.0;
+
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+
+      window.speechSynthesis.speak(utterance);
+    };
+
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      speakWithVoice();
+    } else {
+      // onvoiceschanged may not fire in Safari — use setTimeout as fallback
+      let fired = false;
+      window.speechSynthesis.onvoiceschanged = () => {
+        if (fired) return;
+        fired = true;
+        speakWithVoice();
+      };
+      setTimeout(() => {
+        if (fired) return;
+        fired = true;
+        speakWithVoice();
+      }, 100);
+    }
   }, []);
 
   const stopSpeaking = useCallback(() => {
