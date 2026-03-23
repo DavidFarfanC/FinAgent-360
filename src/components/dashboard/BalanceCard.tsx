@@ -7,7 +7,7 @@ export const BalanceCard = () => {
   const [visible, setVisible] = useState(true);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl p-6 bg-gradient-to-br from-blue-600/90 via-blue-700/80 to-cyan-600/70 border border-blue-500/30 shadow-2xl shadow-blue-500/20">
+    <div className="relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-blue-600/90 via-blue-700/80 to-cyan-600/70 border border-blue-500/30 shadow-2xl shadow-blue-500/20">
       {/* Mesh background */}
       <div
         className="absolute inset-0 opacity-30"
@@ -24,7 +24,7 @@ export const BalanceCard = () => {
       />
 
       <div className="relative z-10">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <p className="text-blue-200/80 text-xs font-medium uppercase tracking-widest mb-1">
               Saldo disponible
@@ -45,10 +45,10 @@ export const BalanceCard = () => {
           </button>
         </div>
 
-        <div className="mb-6">
+        <div className="mb-4">
           {visible ? (
             <div className="flex items-end gap-2">
-              <span className="text-4xl font-bold text-white tracking-tight">
+              <span className="text-3xl font-bold text-white tracking-tight">
                 {formatCurrency(mockUser.balance)}
               </span>
               <span className="text-blue-200/70 text-sm mb-1">
@@ -75,3 +75,4 @@ export const BalanceCard = () => {
     </div>
   );
 };
+export default BalanceCard;

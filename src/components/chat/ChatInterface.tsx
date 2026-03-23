@@ -77,7 +77,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             'px-4 py-3 rounded-2xl text-sm leading-relaxed',
             isUser
               ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-tr-sm shadow-lg shadow-blue-500/20'
-              : 'glass-card text-slate-200 rounded-tl-sm border-white/[0.07]'
+              : 'bg-white border border-slate-200 text-slate-800 rounded-tl-sm shadow-sm'
           )}
         >
           {isUser ? (
@@ -118,10 +118,10 @@ function QuickActionButton({
       className={clsx(
         'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 border',
         action.action === 'cancel'
-          ? 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20'
+          ? 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100'
           : action.action === 'confirm_block'
-          ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
-          : 'bg-white/[0.05] border-white/[0.08] text-slate-300 hover:bg-white/[0.08] hover:text-white'
+          ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
       )}
     >
       {Icon && <Icon className="w-3 h-3" />}
@@ -136,7 +136,7 @@ function TypingIndicator() {
       <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600/80 to-blue-600/80 border border-purple-500/30 flex items-center justify-center flex-shrink-0">
         <Sparkles className="w-4 h-4 text-purple-300" />
       </div>
-      <div className="glass-card rounded-2xl rounded-tl-sm px-4 py-3">
+      <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
         <div className="flex items-center gap-1.5">
           <span className="typing-dot w-1.5 h-1.5 rounded-full bg-slate-400 inline-block" />
           <span className="typing-dot w-1.5 h-1.5 rounded-full bg-slate-400 inline-block" />
@@ -271,12 +271,12 @@ export const ChatInterface = () => {
   return (
     <div className="flex flex-col h-full">
       {/* ── Chat header ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-3 px-6 py-4 border-b border-white/[0.06] flex-shrink-0">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600/80 to-blue-600/80 border border-purple-500/30 flex items-center justify-center">
-          <Bot className="w-5 h-5 text-purple-300" />
+      <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 bg-white flex-shrink-0">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center shadow-md shadow-purple-200">
+          <Bot className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-white">FinAgent AI</h3>
+          <h3 className="text-sm font-semibold text-slate-900">FinAgent AI</h3>
           <div className="flex items-center gap-1.5 mt-0.5">
             <span className="relative flex h-1.5 w-1.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -294,7 +294,7 @@ export const ChatInterface = () => {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
               </span>
-              <span className="text-xs text-red-400 font-medium">Escuchando...</span>
+              <span className="text-xs text-red-600 font-medium">Escuchando...</span>
             </div>
           )}
           {isSpeaking && (
@@ -303,13 +303,13 @@ export const ChatInterface = () => {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-cyan-400" />
               </span>
-              <span className="text-xs text-cyan-400 font-medium">Hablando...</span>
+              <span className="text-xs text-cyan-700 font-medium">Hablando...</span>
             </div>
           )}
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          <span className="text-xs text-slate-600 bg-white/[0.04] border border-white/[0.07] rounded-lg px-2.5 py-1">
+          <span className="text-xs text-slate-500 bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1">
             GPT-4 Turbo
           </span>
         </div>
@@ -357,7 +357,7 @@ export const ChatInterface = () => {
               <button
                 key={action.id}
                 onClick={() => handleAction(action.action, action.label)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-white/[0.04] border border-white/[0.07] text-slate-400 hover:bg-white/[0.07] hover:text-slate-200 transition-all duration-200"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 shadow-sm transition-all duration-200"
               >
                 {Icon && <Icon className="w-3 h-3" />}
                 {action.label}
@@ -369,7 +369,7 @@ export const ChatInterface = () => {
 
       {/* ── Input area ──────────────────────────────────────────────────────── */}
       <div className="px-6 pb-6 flex-shrink-0">
-        <div className="flex items-end gap-3 bg-white/[0.04] border border-white/[0.08] rounded-2xl p-3 focus-within:border-blue-500/40 focus-within:bg-white/[0.05] transition-all">
+        <div className="flex items-end gap-3 bg-white border border-slate-200 rounded-2xl p-3 focus-within:border-blue-400 shadow-sm transition-all">
           <div className="flex-1 flex flex-col gap-1">
             <textarea
               ref={inputRef}
@@ -383,10 +383,10 @@ export const ChatInterface = () => {
               }
               rows={1}
               className={clsx(
-                'w-full bg-transparent text-sm text-slate-200 focus:outline-none resize-none max-h-32 leading-relaxed',
+                'w-full bg-transparent text-sm text-slate-800 focus:outline-none resize-none max-h-32 leading-relaxed',
                 isListening && transcript
-                  ? 'placeholder:text-white/40 placeholder:italic'
-                  : 'placeholder:text-slate-600'
+                  ? 'placeholder:text-slate-400 placeholder:italic'
+                  : 'placeholder:text-slate-400'
               )}
               style={{ minHeight: '24px' }}
               onInput={(e) => {

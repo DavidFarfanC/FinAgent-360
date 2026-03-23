@@ -4,17 +4,17 @@ import { ReactNode } from 'react';
 
 interface MainLayoutProps {
   children: ReactNode;
-  title: string;
+  title?: string;
   subtitle?: string;
 }
 
 export const MainLayout = ({
   children,
-  title,
+  title = '',
   subtitle,
 }: MainLayoutProps) => {
   return (
-    <div className="flex h-screen bg-[#050912]">
+    <div className="flex h-screen bg-[#F0F4FF]">
       <Sidebar />
       <div className="flex-1 flex flex-col ml-[240px] overflow-hidden">
         <Header title={title} subtitle={subtitle} />
@@ -30,3 +30,4 @@ export const MainLayout = ({
     </div>
   );
 };
+export default MainLayout;

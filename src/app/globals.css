@@ -4,6 +4,23 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
+:root {
+  --background: #F0F4FF;
+  --surface: #FFFFFF;
+  --elevated: #F8FAFF;
+  --border: #E2E8F0;
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #94A3B8;
+  --primary: #2563EB;
+  --primary-light: #EFF6FF;
+  --cyan: #06B6D4;
+  --purple: #7C3AED;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --error: #EF4444;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -12,8 +29,8 @@
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  background-color: #050912;
-  color: #F1F5F9;
+  background-color: var(--background);
+  color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -92,17 +109,18 @@ body {
 
 /* Glass card utility */
 .glass-card {
-  background: rgba(11, 17, 32, 0.8);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
 }
 
 .glass-card-light {
-  background: rgba(17, 24, 39, 0.6);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(226, 232, 240, 0.6);
 }
 
 /* Gradient text */
@@ -137,9 +155,9 @@ body {
   transition: all 0.2s ease;
 }
 .card-hover:hover {
-  transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  transform: translateY(-1px);
+  border-color: rgba(37, 99, 235, 0.2);
+  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.1);
 }
 
 /* Shimmer loading */

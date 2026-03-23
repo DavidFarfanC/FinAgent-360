@@ -27,14 +27,14 @@ export const Sidebar = () => {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-[240px] flex flex-col border-r border-white/[0.06] bg-[#060c1a] z-40">
+    <aside className="fixed left-0 top-0 h-screen w-[240px] flex flex-col border-r border-slate-200 bg-white z-40">
       {/* Logo */}
-      <div className="flex items-center gap-3 px-6 h-[72px] border-b border-white/[0.06]">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/30 flex-shrink-0">
+      <div className="flex items-center gap-3 px-6 h-[72px] border-b border-slate-200">
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/20 flex-shrink-0">
           <Shield className="w-5 h-5 text-white" />
         </div>
         <div className="flex items-center">
-          <span className="text-sm font-bold text-white tracking-tight">
+          <span className="text-sm font-bold text-slate-900 tracking-tight">
             FinAgent
           </span>
           <span className="text-sm font-bold gradient-text tracking-tight">
@@ -46,7 +46,7 @@ export const Sidebar = () => {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-6 space-y-0.5 overflow-y-auto">
-        <p className="px-3 mb-3 text-[10px] font-semibold text-slate-600 uppercase tracking-widest">
+        <p className="px-3 mb-3 text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
           Principal
         </p>
         {navItems.map(({ href, label, icon: Icon, isAI }) => {
@@ -58,8 +58,8 @@ export const Sidebar = () => {
               className={clsx(
                 'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group relative',
                 isActive
-                  ? 'bg-blue-600/15 text-white'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
+                  ? 'bg-blue-50 text-blue-700'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               )}
             >
               {isActive && (
@@ -70,17 +70,16 @@ export const Sidebar = () => {
                   'flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200 flex-shrink-0',
                   isActive
                     ? isAI
-                      ? 'bg-purple-600/20'
-                      : 'bg-blue-600/20'
-                    : 'group-hover:bg-white/[0.06]'
+                      ? 'bg-purple-100'
+                      : 'bg-blue-100'
+                    : 'group-hover:bg-slate-100'
                 )}
               >
                 <Icon
                   className={clsx('w-4 h-4', {
-                    'text-purple-400': isActive && isAI,
-                    'text-blue-400': isActive && !isAI,
-                    'text-slate-500 group-hover:text-slate-300':
-                      !isActive,
+                    'text-purple-600': isActive && isAI,
+                    'text-blue-600': isActive && !isAI,
+                    'text-slate-400 group-hover:text-slate-700': !isActive,
                   })}
                 />
               </span>
@@ -97,25 +96,25 @@ export const Sidebar = () => {
       </nav>
 
       {/* Bottom section */}
-      <div className="border-t border-white/[0.06] p-4 space-y-2">
-        <button className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] transition-all duration-200">
+      <div className="border-t border-slate-200 p-4 space-y-2">
+        <button className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-all duration-200">
           <span className="flex items-center justify-center w-8 h-8 rounded-lg">
-            <Settings className="w-4 h-4 text-slate-500" />
+            <Settings className="w-4 h-4 text-slate-400" />
           </span>
           <span>Configuración</span>
         </button>
 
-        <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+        <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
             AF
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium text-slate-300 truncate">
+            <p className="text-xs font-medium text-slate-700 truncate">
               Alberto F.
             </p>
-            <p className="text-[10px] text-slate-500 truncate">Premium</p>
+            <p className="text-[10px] text-slate-400 truncate">Premium</p>
           </div>
-          <button className="text-slate-600 hover:text-slate-400 transition-colors flex-shrink-0">
+          <button className="text-slate-400 hover:text-slate-700 transition-colors flex-shrink-0">
             <LogOut className="w-3.5 h-3.5" />
           </button>
         </div>
