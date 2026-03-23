@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef, useEffect, KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, useCallback, KeyboardEvent } from 'react';
 import {
   Send,
   Sparkles,
@@ -18,6 +18,8 @@ import {
   aiResponses,
 } from '@/lib/mock-data';
 import { ChatMessage, QuickAction } from '@/types';
+import { useVoiceChat } from '@/hooks/useVoiceChat';
+import { VoiceButton } from '@/components/chat/VoiceButton';
 
 const iconMap: Record<string, React.ElementType> = {
   wallet: Wallet,
@@ -31,7 +33,6 @@ const iconMap: Record<string, React.ElementType> = {
 function renderMarkdown(text: string): React.ReactNode[] {
   const lines = text.split('\n');
   return lines.map((line, i) => {
-    // Handle bold text
     const parts = line.split(/\*\*(.*?)\*\*/g);
     return (
       <p key={i} className={line === '' ? 'h-2' : ''}>
@@ -59,7 +60,6 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         isUser ? 'flex-row-reverse' : 'flex-row'
       )}
     >
-      {/* Avatar */}
       {!isUser && (
         <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600/80 to-blue-600/80 border border-purple-500/30 flex items-center justify-center flex-shrink-0 mt-0.5">
           <Sparkles className="w-4 h-4 text-purple-300" />
@@ -72,7 +72,6 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           isUser ? 'items-end' : 'items-start'
         )}
       >
-        {/* Bubble */}
         <div
           className={clsx(
             'px-4 py-3 rounded-2xl text-sm leading-relaxed',
@@ -88,12 +87,10 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           )}
         </div>
 
-        {/* Timestamp */}
         <span className="text-[10px] text-slate-600 px-1">
           {formatTime(message.timestamp)}
         </span>
 
-        {/* Quick actions */}
         {message.actions && message.actions.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-1">
             {message.actions.map((action) => (
@@ -152,39 +149,44 @@ function TypingIndicator() {
 
 const defaultActions: QuickAction[] = [
   { id: 'qa_1', label: 'Ver saldo', action: 'check_balance', icon: 'wallet' },
-  {
-    id: 'qa_2',
-    label: 'Bloquear tarjeta',
-    action: 'block_card',
-    icon: 'lock',
-  },
-  {
-    id: 'qa_3',
-    label: 'Estado de cuenta',
-    action: 'request_statement',
-    icon: 'file-text',
-  },
-  {
-    id: 'qa_4',
-    label: 'Actualizar dirección',
-    action: 'update_address',
-    icon: 'map-pin',
-  },
+  { id: 'qa_2', label: 'Bloquear tarjeta', action: 'block_card', icon: 'lock' },
+  { id: 'qa_3', label: 'Estado de cuenta', action: 'request_statement', icon: 'file-text' },
+  { id: 'qa_4', label: 'Actualizar dirección', action: 'update_address', icon: 'map-pin' },
 ];
 
 export const ChatInterface = () => {
+  // ── Core chat state ────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<ChatMessage[]>(mockChatMessages);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages, isTyping]);
+  // ── Voice integration refs ─────────────────────────────────────────────────
+  // Tracks whether the last user interaction was triggered by voice
+  const voiceTriggeredRef = useRef(false);
+  // Stable ref to sendMessage — avoids stale closures in voice callbacks
+  const sendMessageRef = useRef<((text: string, action?: string) => Promise<void>) | null>(null);
+  // Tracks last assistant message ID spoken — prevents double-speak on re-renders
+  const lastSpokenMsgIdRef = useRef<string>('');
 
+  // Stable callback passed to the hook — reads sendMessageRef at call time
+  const handleVoiceTranscript = useCallback((text: string) => {
+    voiceTriggeredRef.current = true;
+    sendMessageRef.current?.(text);
+  }, []);
+
+  const {
+    isListening,
+    isSpeaking,
+    transcript,
+    isSupported,
+    startListening,
+    speak,
+    stopSpeaking,
+  } = useVoiceChat({ onTranscript: handleVoiceTranscript });
+
+  // ── Send message logic (unchanged) ─────────────────────────────────────────
   const sendMessage = async (text: string, action?: string) => {
     if (!text.trim() && !action) return;
 
@@ -200,13 +202,10 @@ export const ChatInterface = () => {
     setInput('');
     setIsTyping(true);
 
-    // Simulate AI response delay
     await new Promise((r) => setTimeout(r, 1200 + Math.random() * 600));
 
     const responseKey = action || 'default';
-    const responseContent =
-      aiResponses[responseKey] ||
-      aiResponses.default;
+    const responseContent = aiResponses[responseKey] ?? aiResponses.default;
 
     const aiMessage: ChatMessage = {
       id: `msg_${Date.now() + 1}`,
@@ -217,12 +216,7 @@ export const ChatInterface = () => {
       actions:
         responseKey === 'block_card'
           ? [
-              {
-                id: 'confirm',
-                label: 'Confirmar bloqueo',
-                action: 'confirm_block',
-                icon: 'check',
-              },
+              { id: 'confirm', label: 'Confirmar bloqueo', action: 'confirm_block', icon: 'check' },
               { id: 'cancel', label: 'Cancelar', action: 'cancel', icon: 'x' },
             ]
           : undefined,
@@ -231,6 +225,28 @@ export const ChatInterface = () => {
     setIsTyping(false);
     setMessages((prev) => [...prev, aiMessage]);
   };
+
+  // Keep ref in sync every render so handleVoiceTranscript always calls latest sendMessage
+  sendMessageRef.current = sendMessage;
+
+  // ── Speak AI response after voice-triggered interactions ───────────────────
+  useEffect(() => {
+    const lastMsg = messages[messages.length - 1];
+    if (!lastMsg || lastMsg.id === lastSpokenMsgIdRef.current) return;
+
+    if (lastMsg.role === 'assistant' && voiceTriggeredRef.current) {
+      lastSpokenMsgIdRef.current = lastMsg.id;
+      voiceTriggeredRef.current = false;
+      speak(lastMsg.content);
+    }
+  }, [messages, speak]);
+
+  // ── Auto-scroll on new messages or typing indicator ────────────────────────
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, isTyping]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -243,9 +259,18 @@ export const ChatInterface = () => {
     sendMessage(label, action);
   };
 
+  // Click voice button: stop speech if speaking, else toggle listening
+  const handleVoiceButtonClick = () => {
+    if (isSpeaking) {
+      stopSpeaking();
+    } else {
+      startListening();
+    }
+  };
+
   return (
     <div className="flex flex-col h-full">
-      {/* Chat header */}
+      {/* ── Chat header ─────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 px-6 py-4 border-b border-white/[0.06] flex-shrink-0">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600/80 to-blue-600/80 border border-purple-500/30 flex items-center justify-center">
           <Bot className="w-5 h-5 text-purple-300" />
@@ -254,14 +279,35 @@ export const ChatInterface = () => {
           <h3 className="text-sm font-semibold text-white">FinAgent AI</h3>
           <div className="flex items-center gap-1.5 mt-0.5">
             <span className="relative flex h-1.5 w-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
             </span>
-            <span className="text-xs text-slate-500">
-              En línea · Disponible 24/7
-            </span>
+            <span className="text-xs text-slate-500">En línea · Disponible 24/7</span>
           </div>
         </div>
+
+        {/* Voice status indicator */}
+        <div className="flex items-center gap-2 ml-3">
+          {isListening && (
+            <div className="flex items-center gap-1.5 animate-fade-in">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
+              </span>
+              <span className="text-xs text-red-400 font-medium">Escuchando...</span>
+            </div>
+          )}
+          {isSpeaking && (
+            <div className="flex items-center gap-1.5 animate-fade-in">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-cyan-400" />
+              </span>
+              <span className="text-xs text-cyan-400 font-medium">Hablando...</span>
+            </div>
+          )}
+        </div>
+
         <div className="ml-auto flex items-center gap-2">
           <span className="text-xs text-slate-600 bg-white/[0.04] border border-white/[0.07] rounded-lg px-2.5 py-1">
             GPT-4 Turbo
@@ -269,7 +315,7 @@ export const ChatInterface = () => {
         </div>
       </div>
 
-      {/* Messages */}
+      {/* ── Messages ────────────────────────────────────────────────────────── */}
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto px-6 py-6 space-y-5"
@@ -279,14 +325,12 @@ export const ChatInterface = () => {
             key={message.id}
             message={{
               ...message,
-              actions: message.actions?.map((a) => ({
-                ...a,
-                // Attach handler via component
-              })),
+              actions: message.actions?.map((a) => ({ ...a })),
             }}
           />
         ))}
-        {/* Re-render with action handler via context or prop drilling */}
+
+        {/* Last assistant message quick actions with live handler */}
         {messages.length > 0 &&
           messages[messages.length - 1].role === 'assistant' &&
           messages[messages.length - 1].actions && (
@@ -300,10 +344,11 @@ export const ChatInterface = () => {
               ))}
             </div>
           )}
+
         {isTyping && <TypingIndicator />}
       </div>
 
-      {/* Quick suggestions */}
+      {/* ── Quick suggestion chips ───────────────────────────────────────────── */}
       {messages.length <= 5 && (
         <div className="px-6 pb-3 flex flex-wrap gap-2">
           {defaultActions.map((action) => {
@@ -322,24 +367,43 @@ export const ChatInterface = () => {
         </div>
       )}
 
-      {/* Input area */}
+      {/* ── Input area ──────────────────────────────────────────────────────── */}
       <div className="px-6 pb-6 flex-shrink-0">
         <div className="flex items-end gap-3 bg-white/[0.04] border border-white/[0.08] rounded-2xl p-3 focus-within:border-blue-500/40 focus-within:bg-white/[0.05] transition-all">
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Escribe tu consulta... (Enter para enviar)"
-            rows={1}
-            className="flex-1 bg-transparent text-sm text-slate-200 placeholder-slate-600 focus:outline-none resize-none max-h-32 leading-relaxed"
-            style={{ minHeight: '24px' }}
-            onInput={(e) => {
-              const target = e.target as HTMLTextAreaElement;
-              target.style.height = 'auto';
-              target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
-            }}
-          />
+          <div className="flex-1 flex flex-col gap-1">
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={
+                isListening && transcript
+                  ? transcript
+                  : 'Escribe tu consulta... (Enter para enviar)'
+              }
+              rows={1}
+              className={clsx(
+                'w-full bg-transparent text-sm text-slate-200 focus:outline-none resize-none max-h-32 leading-relaxed',
+                isListening && transcript
+                  ? 'placeholder:text-white/40 placeholder:italic'
+                  : 'placeholder:text-slate-600'
+              )}
+              style={{ minHeight: '24px' }}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = 'auto';
+                target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
+              }}
+            />
+            {/* Interim transcript caption (shows below textarea while listening) */}
+            {isListening && transcript && (
+              <p className="text-[11px] italic text-white/40 px-0.5 animate-fade-in">
+                {transcript}
+              </p>
+            )}
+          </div>
+
+          {/* Send button */}
           <button
             onClick={() => sendMessage(input)}
             disabled={!input.trim() || isTyping}
@@ -352,7 +416,16 @@ export const ChatInterface = () => {
           >
             <Send className="w-4 h-4" />
           </button>
+
+          {/* Voice button — sits right of send button, hidden when not supported */}
+          <VoiceButton
+            isListening={isListening}
+            isSpeaking={isSpeaking}
+            isSupported={isSupported}
+            onClick={handleVoiceButtonClick}
+          />
         </div>
+
         <p className="text-center text-[10px] text-slate-700 mt-2">
           FinAgent AI puede cometer errores. Verifica información importante.
         </p>
