@@ -15,10 +15,9 @@ import { clsx } from 'clsx';
 import {
   mockChatMessages,
   formatTime,
-  aiResponses,
 } from '@/lib/mock-data';
 import { ChatMessage, QuickAction } from '@/types';
-import { useVoiceChat } from '@/hooks/useVoiceChat';
+import { useNexoVoice } from '@/hooks/useNexoVoice';
 import { VoiceButton } from '@/components/chat/VoiceButton';
 
 const iconMap: Record<string, React.ElementType> = {
@@ -162,38 +161,64 @@ export const ChatInterface = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // ── Voice integration refs ─────────────────────────────────────────────────
-  // Tracks whether the last user interaction was triggered by voice
-  const voiceTriggeredRef = useRef(false);
-  // Stable ref to sendMessage — avoids stale closures in voice callbacks
-  const sendMessageRef = useRef<((text: string, action?: string) => Promise<void>) | null>(null);
-  // Tracks last assistant message ID spoken — prevents double-speak on re-renders
-  const lastSpokenMsgIdRef = useRef<string>('');
+  // ── Agentforce session ────────────────────────────────────────────────────
+  const sessionIdRef = useRef<string | null>(null);
 
-  // Stable callback passed to the hook — reads sendMessageRef at call time
-  const handleVoiceTranscript = useCallback((text: string) => {
-    voiceTriggeredRef.current = true;
-    sendMessageRef.current?.(text);
+  useEffect(() => {
+    let mounted = true;
+
+    fetch('/api/agent/session', { method: 'POST' })
+      .then((res) => {
+        console.log('[Chat] Session response status:', res.status);
+        return res.json();
+      })
+      .then((data) => {
+        console.log('[Chat] Session data:', data);
+        if (mounted && data.sessionId) {
+          sessionIdRef.current = data.sessionId;
+        }
+      })
+      .catch((err) => console.error('[ChatInterface] createSession:', err));
+
+    return () => {
+      mounted = false;
+      if (sessionIdRef.current) {
+        fetch('/api/agent/session', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: sessionIdRef.current }),
+        }).catch(() => {});
+      }
+    };
+  }, []);
+
+  // ── Nexo voice agent ────────────────────────────────────────────────────────
+  // onActionDetected: Nexo suggests an action → pre-fill the chat input
+  const handleActionDetected = useCallback((suggestedText: string) => {
+    setInput(suggestedText);
+    inputRef.current?.focus();
   }, []);
 
   const {
     isListening,
     isSpeaking,
+    isThinking,
     transcript,
     isSupported,
-    startListening,
-    speak,
+    startConversation,
     stopSpeaking,
-  } = useVoiceChat({ onTranscript: handleVoiceTranscript });
+  } = useNexoVoice({ onActionDetected: handleActionDetected });
 
-  // ── Send message logic (unchanged) ─────────────────────────────────────────
+  // ── Send message logic ──────────────────────────────────────────────────────
   const sendMessage = async (text: string, action?: string) => {
-    if (!text.trim() && !action) return;
+    const userText =
+      text.trim() || defaultActions.find((a) => a.action === action)?.label || '';
+    if (!userText) return;
 
     const userMessage: ChatMessage = {
       id: `msg_${Date.now()}`,
       role: 'user',
-      content: text || defaultActions.find((a) => a.action === action)?.label || text,
+      content: userText,
       timestamp: new Date().toISOString(),
       status: 'sent',
     };
@@ -202,44 +227,37 @@ export const ChatInterface = () => {
     setInput('');
     setIsTyping(true);
 
-    await new Promise((r) => setTimeout(r, 1200 + Math.random() * 600));
+    let reply: string;
+    try {
+      const res = await fetch('/api/agent/message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: sessionIdRef.current,
+          message: userText,
+        }),
+      });
 
-    const responseKey = action || 'default';
-    const responseContent = aiResponses[responseKey] ?? aiResponses.default;
+      const data = await res.json();
+      reply = res.ok
+        ? data.reply
+        : 'Lo sentimos, ocurrió un error al procesar tu consulta. Por favor intenta de nuevo.';
+    } catch {
+      reply =
+        'No fue posible conectar con el asistente. Verifica tu conexión e intenta de nuevo.';
+    }
 
     const aiMessage: ChatMessage = {
       id: `msg_${Date.now() + 1}`,
       role: 'assistant',
-      content: responseContent,
+      content: reply,
       timestamp: new Date().toISOString(),
       status: 'read',
-      actions:
-        responseKey === 'block_card'
-          ? [
-              { id: 'confirm', label: 'Confirmar bloqueo', action: 'confirm_block', icon: 'check' },
-              { id: 'cancel', label: 'Cancelar', action: 'cancel', icon: 'x' },
-            ]
-          : undefined,
     };
 
     setIsTyping(false);
     setMessages((prev) => [...prev, aiMessage]);
   };
-
-  // Keep ref in sync every render so handleVoiceTranscript always calls latest sendMessage
-  sendMessageRef.current = sendMessage;
-
-  // ── Speak AI response after voice-triggered interactions ───────────────────
-  useEffect(() => {
-    const lastMsg = messages[messages.length - 1];
-    if (!lastMsg || lastMsg.id === lastSpokenMsgIdRef.current) return;
-
-    if (lastMsg.role === 'assistant' && voiceTriggeredRef.current) {
-      lastSpokenMsgIdRef.current = lastMsg.id;
-      voiceTriggeredRef.current = false;
-      speak(lastMsg.content);
-    }
-  }, [messages, speak]);
 
   // ── Auto-scroll on new messages or typing indicator ────────────────────────
   useEffect(() => {
@@ -259,12 +277,12 @@ export const ChatInterface = () => {
     sendMessage(label, action);
   };
 
-  // Click voice button: stop speech if speaking, else toggle listening
+  // Click voice button: stop speech if speaking, else toggle Nexo conversation
   const handleVoiceButtonClick = () => {
     if (isSpeaking) {
       stopSpeaking();
     } else {
-      startListening();
+      startConversation();
     }
   };
 
@@ -297,7 +315,16 @@ export const ChatInterface = () => {
               <span className="text-xs text-red-600 font-medium">Escuchando...</span>
             </div>
           )}
-          {isSpeaking && (
+          {isThinking && (
+            <div className="flex items-center gap-1.5 animate-fade-in">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-purple-500" />
+              </span>
+              <span className="text-xs text-purple-600 font-medium">Nexo pensando...</span>
+            </div>
+          )}
+          {isSpeaking && !isThinking && (
             <div className="flex items-center gap-1.5 animate-fade-in">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
@@ -421,6 +448,7 @@ export const ChatInterface = () => {
           <VoiceButton
             isListening={isListening}
             isSpeaking={isSpeaking}
+            isThinking={isThinking}
             isSupported={isSupported}
             onClick={handleVoiceButtonClick}
           />

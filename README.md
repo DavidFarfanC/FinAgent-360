@@ -338,7 +338,7 @@ const maleVoice = voices.find(
 | `surface` | `#FFFFFF` | Superficies de tarjetas/paneles |
 | `primary` | `#2563EB` | Azul principal (botones, gradientes) |
 | `cyan` | `#06B6D4` | Acento cyan (gradientes, voz activa) |
-| `purple` | `#8B5CF6` | Acento IA / asistente |
+| `purple` | `#7C3AED` | Acento IA / asistente |
 | `success` | `#10B981` | Estados positivos |
 | `warning` | `#F59E0B` | Alertas / pendientes |
 | `error` | `#EF4444` | Errores / bloqueados |
