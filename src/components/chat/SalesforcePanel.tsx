@@ -27,7 +27,7 @@ export default function SalesforcePanel({ suggestedInput }: SalesforcePanelProps
     initScript.innerHTML = `
       window.initEmbeddedMessaging = function() {
         try {
-          embeddedservice_bootstrap.settings.language = 'es';
+          embeddedservice_bootstrap.settings.language = 'en_US';
           embeddedservice_bootstrap.init(
             '00Daj00000mMjCe',
             'ESA_Web_Deployment',
@@ -41,7 +41,7 @@ export default function SalesforcePanel({ suggestedInput }: SalesforcePanelProps
         }
       };
     `
-    document.head.appendChild(initScript)
+    document.body.appendChild(initScript)
 
     // Carga el bootstrap script
     const bootstrapScript = document.createElement('script')
@@ -52,15 +52,13 @@ export default function SalesforcePanel({ suggestedInput }: SalesforcePanelProps
         (window as any).initEmbeddedMessaging()
       }
     }
-    document.head.appendChild(bootstrapScript)
+    document.body.appendChild(bootstrapScript)
 
     return () => {
       // Cleanup al desmontar
       if (document.head.contains(meta)) document.head.removeChild(meta)
-      document.head.removeChild(initScript)
-      if (document.head.contains(bootstrapScript)) {
-        document.head.removeChild(bootstrapScript)
-      }
+      if (document.body.contains(initScript)) document.body.removeChild(initScript)
+      if (document.body.contains(bootstrapScript)) document.body.removeChild(bootstrapScript)
     }
   }, [])
 
