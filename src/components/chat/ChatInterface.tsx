@@ -1,5 +1,6 @@
 'use client';
-import { useState, useRef, useEffect, useCallback, KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, KeyboardEvent } from 'react';
+
 import {
   Send,
   Sparkles,
@@ -17,8 +18,6 @@ import {
   formatTime,
 } from '@/lib/mock-data';
 import { ChatMessage, QuickAction } from '@/types';
-import { useNexoVoice } from '@/hooks/useNexoVoice';
-import { VoiceButton } from '@/components/chat/VoiceButton';
 
 const iconMap: Record<string, React.ElementType> = {
   wallet: Wallet,
@@ -192,23 +191,6 @@ export const ChatInterface = () => {
     };
   }, []);
 
-  // ── Nexo voice agent ────────────────────────────────────────────────────────
-  // onActionDetected: Nexo suggests an action → pre-fill the chat input
-  const handleActionDetected = useCallback((suggestedText: string) => {
-    setInput(suggestedText);
-    inputRef.current?.focus();
-  }, []);
-
-  const {
-    isListening,
-    isSpeaking,
-    isThinking,
-    transcript,
-    isSupported,
-    startConversation,
-    stopSpeaking,
-  } = useNexoVoice({ onActionDetected: handleActionDetected });
-
   // ── Send message logic ──────────────────────────────────────────────────────
   const sendMessage = async (text: string, action?: string) => {
     const userText =
@@ -277,10 +259,6 @@ export const ChatInterface = () => {
     sendMessage(label, action);
   };
 
-  const handleVoiceButtonClick = () => {
-    startConversation();
-  };
-
   return (
     <div className="flex flex-col h-full">
       {/* ── Chat header ─────────────────────────────────────────────────────── */}
@@ -297,37 +275,6 @@ export const ChatInterface = () => {
             </span>
             <span className="text-xs text-slate-500">En línea · Disponible 24/7</span>
           </div>
-        </div>
-
-        {/* Voice status indicator */}
-        <div className="flex items-center gap-2 ml-3">
-          {isListening && (
-            <div className="flex items-center gap-1.5 animate-fade-in">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
-              </span>
-              <span className="text-xs text-red-600 font-medium">Escuchando...</span>
-            </div>
-          )}
-          {isThinking && (
-            <div className="flex items-center gap-1.5 animate-fade-in">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-purple-500" />
-              </span>
-              <span className="text-xs text-purple-600 font-medium">Nexo pensando...</span>
-            </div>
-          )}
-          {isSpeaking && !isThinking && (
-            <div className="flex items-center gap-1.5 animate-fade-in">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-cyan-400" />
-              </span>
-              <span className="text-xs text-cyan-700 font-medium">Hablando...</span>
-            </div>
-          )}
         </div>
 
         <div className="ml-auto flex items-center gap-2">
@@ -424,21 +371,6 @@ export const ChatInterface = () => {
             <Send className="w-4 h-4" />
           </button>
 
-          {/* Voice button with transcript overlay */}
-          <div className="relative flex-shrink-0">
-            {isListening && transcript && (
-              <div className="absolute bottom-full mb-2 right-0 max-w-[200px] bg-slate-800/80 backdrop-blur-sm rounded-lg px-2 py-1 text-xs text-white/90 line-clamp-2 animate-fade-in pointer-events-none">
-                {transcript}
-              </div>
-            )}
-            <VoiceButton
-              isListening={isListening}
-              isSpeaking={isSpeaking}
-              isThinking={isThinking}
-              isSupported={isSupported}
-              onClick={handleVoiceButtonClick}
-            />
-          </div>
         </div>
 
         <p className="text-center text-[10px] text-slate-700 mt-2">
