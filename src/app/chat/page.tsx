@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { NexoVoicePanel } from '@/components/chat/NexoVoicePanel';
-import { SalesforcePanel } from '@/components/chat/SalesforcePanel';
+import SalesforcePanel from '@/components/chat/SalesforcePanel';
 import { clsx } from 'clsx';
 
 type Tab = 'voice' | 'agent';
@@ -63,12 +63,7 @@ export default function ChatPage() {
               'flex-col'
             )}
           >
-            <SalesforcePanel
-              suggestedInput={suggestedInput}
-              onInputChange={(val) => {
-                if (!val) setSuggestedInput('');
-              }}
-            />
+            <SalesforcePanel suggestedInput={suggestedInput} />
           </div>
         </div>
       </div>

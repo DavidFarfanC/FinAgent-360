@@ -149,7 +149,7 @@ FinAgent-360/
 │   │   │
 │   │   ├── chat/
 │   │   │   ├── NexoVoicePanel.tsx      # Panel de voz conversacional con Nexo (oscuro)
-│   │   │   ├── SalesforcePanel.tsx     # Widget embebible de chat Agentforce (claro)
+│   │   │   ├── SalesforcePanel.tsx     # Widget real Salesforce Messaging for Web (MIAW)
 │   │   │   ├── ChatInterface.tsx       # Chat de texto conectado a Agentforce
 │   │   │   └── VoiceButton.tsx         # Botón de micrófono con ecualizador animado
 │   │   │
@@ -219,13 +219,14 @@ Asistente de voz conversacional con diseño oscuro (slate-900/blue-950):
 
 #### Panel derecho — Agentforce Chat (`SalesforcePanel`)
 
-Widget de chat con identidad de Salesforce (Messaging for Web):
+Widget real de **Salesforce Messaging for Web** (Embedded Messaging / MIAW):
 
-- Interfaz de mensajería estilo WhatsApp con burbujas diferenciadas
-- Logo de Salesforce y badge "Powered by Agentforce"
-- Recibe el texto sugerido por Nexo automáticamente en el campo de entrada
-- Conectado a **Salesforce Agentforce** vía `/api/agent/message`
-- Fallback: respuesta simulada mientras la integración con Agentforce se configura
+- Carga el script oficial de bootstrap de Salesforce vía `useEffect` (una sola vez, controlado con `useRef`)
+- Registra `window.initEmbeddedMessaging` e invoca `embeddedservice_bootstrap.init(...)` con las credenciales de la org
+- El chat flotante oficial de Salesforce aparece en la **esquina inferior derecha** de la pantalla
+- El panel muestra una tarjeta informativa indicando al usuario dónde aparece el botón del chat
+- Si llega un `suggestedInput` desde Nexo, se muestra como sugerencia visual en el panel
+- Cleanup al desmontar: elimina ambos scripts del `<head>` para evitar duplicados en hot-reload
 
 #### Comunicación entre paneles
 
@@ -376,18 +377,44 @@ API Routes (Next.js)
 | `AGENTFORCE_AGENT_ID` | ID del agente en Salesforce (`0Xx...`) |
 | `SALESFORCE_RUNTIME_BASE_URL` | Endpoint runtime de Agentforce (`https://api.salesforce.com`) |
 
-### Widget `SalesforcePanel` — snippet embebible
+### Widget `SalesforcePanel` — Messaging for Web real
 
-`SalesforcePanel` está diseñado para ser reutilizable de forma independiente. Acepta:
+`SalesforcePanel` carga el widget oficial de Salesforce Embedded Messaging directamente desde el CDN de la org. No depende de las rutas `/api/agent/*` propias — el chat lo gestiona Salesforce end-to-end.
+
+**Credenciales del widget (hardcoded en el componente):**
+
+| Parámetro | Valor |
+|---|---|
+| Org ID | `00Daj00000mMjCe` |
+| Deployment name | `ESA_Web_Deployment` |
+| Site URL | `https://orgfarm-6448954ded-dev-ed.develop.my.site.com/...` |
+| scrt2URL | `https://orgfarm-6448954ded-dev-ed.develop.my.salesforce-scrt.com` |
+| Idioma | `es` |
+
+**Props:**
 
 ```typescript
 interface SalesforcePanelProps {
-  suggestedInput?: string;   // pre-rellena el input desde un sistema externo
-  onInputChange?: (value: string) => void;  // notifica cambios al padre
+  suggestedInput?: string;  // texto sugerido por Nexo, mostrado como aviso visual
 }
 ```
 
-El panel puede embeberse en cualquier página o app externa como widget de atención digital, conectándolo a `/api/agent/*` o directamente a la API de Agentforce.
+**Snippet de carga (implementado en `useEffect`):**
+
+```html
+<!-- Script 1: registra initEmbeddedMessaging en window -->
+<script>
+  window.initEmbeddedMessaging = function() {
+    embeddedservice_bootstrap.settings.language = 'es';
+    embeddedservice_bootstrap.init('00Daj00000mMjCe', 'ESA_Web_Deployment', ...);
+  }
+</script>
+
+<!-- Script 2: carga bootstrap y llama a init en onload -->
+<script src=".../bootstrap.min.js" onload="initEmbeddedMessaging()"></script>
+```
+
+El componente puede embeberse en cualquier página Next.js sin configuración adicional. El widget flotante de Salesforce gestiona la conversación de forma completamente independiente.
 
 ---
 
