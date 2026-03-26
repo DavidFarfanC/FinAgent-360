@@ -64,7 +64,6 @@ export interface UseNexoVoiceReturn {
 }
 
 const ACTION_KEYWORDS = ['escríbelo en el chat', 'en el chat', 'escribe'];
-
 function hasActionKeyword(text: string): boolean {
   const lower = text.toLowerCase();
   return ACTION_KEYWORDS.some((kw) => lower.includes(kw));
@@ -81,9 +80,23 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
   const historyRef = useRef<HistoryMessage[]>([]);
   const lastUserMessageRef = useRef('');
   const onActionDetectedRef = useRef(onActionDetected);
+
+  // Sync refs — readable inside callbacks without stale closures
+  const isConversationActiveRef = useRef(false);
+  const isSpeakingRef = useRef(false);
+  const isThinkingRef = useRef(false);
+  const pendingTranscriptRef = useRef('');
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => { onActionDetectedRef.current = onActionDetected; });
 
-  // ── Speak via SpeechSynthesis ─────────────────────────────────────────────
+  // ── Try to (re)start recognition — safe wrapper ───────────────────────────
+  const tryStartRecognition = useCallback(() => {
+    if (!isConversationActiveRef.current) return;
+    try { recognitionRef.current?.start(); } catch { /* already active */ }
+  }, []);
+
+  // ── TTS speak ─────────────────────────────────────────────────────────────
   const speak = useCallback((text: string) => {
     if (typeof window === 'undefined') return;
 
@@ -96,9 +109,15 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
 
     window.speechSynthesis.cancel();
 
+    const onTTSEnd = () => {
+      setIsSpeaking(false);
+      isSpeakingRef.current = false;
+      // Resume listening after Nexo finishes speaking
+      tryStartRecognition();
+    };
+
     const speakNow = () => {
       const voices = window.speechSynthesis.getVoices();
-
       const preferredVoices = [
         'Google español de Estados Unidos',
         'Google español',
@@ -108,7 +127,6 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
         'Reed',
         'Rocko',
       ];
-
       const voice =
         preferredVoices.reduce<SpeechSynthesisVoice | null>((found, name) => {
           if (found) return found;
@@ -124,9 +142,9 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
       utterance.rate = 1.35;
       utterance.volume = 1.0;
 
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
+      utterance.onstart = () => { setIsSpeaking(true); isSpeakingRef.current = true; };
+      utterance.onend = onTTSEnd;
+      utterance.onerror = onTTSEnd;
 
       window.speechSynthesis.speak(utterance);
     };
@@ -136,30 +154,24 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
       speakNow();
     } else {
       let fired = false;
-      window.speechSynthesis.onvoiceschanged = () => {
-        if (fired) return;
-        fired = true;
-        speakNow();
-      };
-      setTimeout(() => {
-        if (fired) return;
-        fired = true;
-        speakNow();
-      }, 100);
+      window.speechSynthesis.onvoiceschanged = () => { if (fired) return; fired = true; speakNow(); };
+      setTimeout(() => { if (fired) return; fired = true; speakNow(); }, 100);
     }
-  }, []);
+  }, [tryStartRecognition]);
 
   // ── Call Nexo API ─────────────────────────────────────────────────────────
   const callNexo = useCallback(async (userMessage: string) => {
+    if (!userMessage.trim() || !isConversationActiveRef.current) return;
+
     setIsThinking(true);
+    isThinkingRef.current = true;
+    setTranscript('');
+
     try {
       const res = await fetch('/api/nexo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: userMessage,
-          history: historyRef.current,
-        }),
+        body: JSON.stringify({ message: userMessage, history: historyRef.current }),
       });
 
       const data = await res.json();
@@ -167,7 +179,6 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
         ? data.reply
         : 'Lo siento, tuve un problema. ¿Puedes repetirlo?';
 
-      // Update history (keep last 6 messages = 3 exchanges)
       historyRef.current = [
         ...historyRef.current,
         { role: 'user' as const, content: userMessage },
@@ -175,19 +186,25 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
       ].slice(-6);
 
       setIsThinking(false);
-      speak(reply);
+      isThinkingRef.current = false;
 
-      // Detect actionable intent → fill chat input
       if (hasActionKeyword(reply)) {
         onActionDetectedRef.current?.(lastUserMessageRef.current);
       }
+
+      if (isConversationActiveRef.current) {
+        speak(reply);
+      }
     } catch {
       setIsThinking(false);
-      speak('Lo siento, no pude conectarme. Intenta de nuevo.');
+      isThinkingRef.current = false;
+      if (isConversationActiveRef.current) {
+        speak('Lo siento, no pude conectarme. Intenta de nuevo.');
+      }
     }
   }, [speak]);
 
-  // ── Init SpeechRecognition ────────────────────────────────────────────────
+  // ── Init SpeechRecognition (continuous) ───────────────────────────────────
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -199,78 +216,126 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
 
     const recognition = new SpeechRecognitionAPI();
     recognition.lang = 'es-MX';
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
 
+    recognition.onstart = () => {
+      setIsListening(true);
+      // Interruption: user started speaking while Nexo was talking
+      if (isSpeakingRef.current) {
+        window.speechSynthesis.cancel();
+        setIsSpeaking(false);
+        isSpeakingRef.current = false;
+      }
+    };
+
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       let interim = '';
-      let final = '';
+      let finalText = '';
+
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
         if (result.isFinal) {
-          final += result[0].transcript;
+          finalText += result[0].transcript;
         } else {
           interim += result[0].transcript;
         }
       }
 
-      setTranscript(interim || final);
+      if (interim) setTranscript(interim);
 
-      if (final.trim()) {
-        lastUserMessageRef.current = final.trim();
-        setTranscript('');
-        callNexo(final.trim());
+      if (finalText.trim()) {
+        // Cancel TTS if Nexo is speaking (user interruption)
+        if (isSpeakingRef.current) {
+          window.speechSynthesis.cancel();
+          setIsSpeaking(false);
+          isSpeakingRef.current = false;
+        }
+
+        lastUserMessageRef.current = finalText.trim();
+        pendingTranscriptRef.current += ' ' + finalText.trim();
+        setTranscript(pendingTranscriptRef.current.trim());
+
+        // Reset debounce: 1500ms after last final result → send to OpenAI
+        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = setTimeout(() => {
+          const text = pendingTranscriptRef.current.trim();
+          pendingTranscriptRef.current = '';
+          // Pause recognition while thinking/speaking
+          try { recognition.stop(); } catch { /* ignore */ }
+          if (text) callNexo(text);
+        }, 1500);
       }
     };
 
-    recognition.onstart = () => setIsListening(true);
     recognition.onend = () => {
       setIsListening(false);
-      setTranscript('');
+      // Auto-restart if conversation is active and Nexo is not responding
+      if (
+        isConversationActiveRef.current &&
+        !isThinkingRef.current &&
+        !isSpeakingRef.current
+      ) {
+        setTimeout(() => {
+          try { recognition.start(); } catch { /* ignore */ }
+        }, 200);
+      }
     };
+
     recognition.onerror = () => {
       setIsListening(false);
-      setTranscript('');
+      if (
+        isConversationActiveRef.current &&
+        !isThinkingRef.current &&
+        !isSpeakingRef.current
+      ) {
+        setTimeout(() => {
+          try { recognition.start(); } catch { /* ignore */ }
+        }, 500);
+      }
     };
 
     recognitionRef.current = recognition;
 
     return () => {
       recognition.abort();
-      if (typeof window !== 'undefined') {
-        window.speechSynthesis.cancel();
-      }
+      if (typeof window !== 'undefined') window.speechSynthesis.cancel();
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     };
   }, [callNexo]);
 
   // ── Public controls ───────────────────────────────────────────────────────
   const startConversation = useCallback(() => {
-    const recognition = recognitionRef.current;
-    if (!recognition) return;
-
-    if (isListening) {
-      recognition.stop();
-      return;
-    }
-
-    // Stop any ongoing TTS before listening
-    if (typeof window !== 'undefined') {
+    if (isConversationActiveRef.current) {
+      // ── Turn OFF ──
+      isConversationActiveRef.current = false;
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      pendingTranscriptRef.current = '';
+      recognitionRef.current?.stop();
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
+      setIsListening(false);
+      setIsThinking(false);
+      setTranscript('');
+      isSpeakingRef.current = false;
+      isThinkingRef.current = false;
+    } else {
+      // ── Turn ON ──
+      isConversationActiveRef.current = true;
+      pendingTranscriptRef.current = '';
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      isSpeakingRef.current = false;
+      try { recognitionRef.current?.start(); } catch { /* already active */ }
     }
-
-    try {
-      recognition.start();
-    } catch {
-      // recognition already active — ignore
-    }
-  }, [isListening]);
+  }, []);
 
   const stopSpeaking = useCallback(() => {
     if (typeof window === 'undefined') return;
     window.speechSynthesis.cancel();
     setIsSpeaking(false);
+    isSpeakingRef.current = false;
   }, []);
 
   return { isListening, isSpeaking, isThinking, isSupported, transcript, startConversation, stopSpeaking };

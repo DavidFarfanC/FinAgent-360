@@ -277,13 +277,8 @@ export const ChatInterface = () => {
     sendMessage(label, action);
   };
 
-  // Click voice button: stop speech if speaking, else toggle Nexo conversation
   const handleVoiceButtonClick = () => {
-    if (isSpeaking) {
-      stopSpeaking();
-    } else {
-      startConversation();
-    }
+    startConversation();
   };
 
   return (
@@ -403,18 +398,9 @@ export const ChatInterface = () => {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={
-                isListening && transcript
-                  ? transcript
-                  : 'Escribe tu consulta... (Enter para enviar)'
-              }
+              placeholder="Escribe tu consulta... (Enter para enviar)"
               rows={1}
-              className={clsx(
-                'w-full bg-transparent text-sm text-slate-800 focus:outline-none resize-none max-h-32 leading-relaxed',
-                isListening && transcript
-                  ? 'placeholder:text-slate-400 placeholder:italic'
-                  : 'placeholder:text-slate-400'
-              )}
+              className="w-full bg-transparent text-sm text-slate-800 focus:outline-none resize-none max-h-32 leading-relaxed placeholder:text-slate-400"
               style={{ minHeight: '24px' }}
               onInput={(e) => {
                 const target = e.target as HTMLTextAreaElement;
@@ -422,12 +408,6 @@ export const ChatInterface = () => {
                 target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
               }}
             />
-            {/* Interim transcript caption (shows below textarea while listening) */}
-            {isListening && transcript && (
-              <p className="text-[11px] italic text-white/40 px-0.5 animate-fade-in">
-                {transcript}
-              </p>
-            )}
           </div>
 
           {/* Send button */}
@@ -444,14 +424,21 @@ export const ChatInterface = () => {
             <Send className="w-4 h-4" />
           </button>
 
-          {/* Voice button — sits right of send button, hidden when not supported */}
-          <VoiceButton
-            isListening={isListening}
-            isSpeaking={isSpeaking}
-            isThinking={isThinking}
-            isSupported={isSupported}
-            onClick={handleVoiceButtonClick}
-          />
+          {/* Voice button with transcript overlay */}
+          <div className="relative flex-shrink-0">
+            {isListening && transcript && (
+              <div className="absolute bottom-full mb-2 right-0 max-w-[200px] bg-slate-800/80 backdrop-blur-sm rounded-lg px-2 py-1 text-xs text-white/90 line-clamp-2 animate-fade-in pointer-events-none">
+                {transcript}
+              </div>
+            )}
+            <VoiceButton
+              isListening={isListening}
+              isSpeaking={isSpeaking}
+              isThinking={isThinking}
+              isSupported={isSupported}
+              onClick={handleVoiceButtonClick}
+            />
+          </div>
         </div>
 
         <p className="text-center text-[10px] text-slate-700 mt-2">
