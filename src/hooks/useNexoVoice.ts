@@ -116,37 +116,67 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
       tryStartRecognition();
     };
 
-    const speakNow = () => {
+    const speakWithBestVoice = (utterance: SpeechSynthesisUtterance) => {
       const voices = window.speechSynthesis.getVoices();
-      const preferredVoices = [
+
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      const isChrome = /chrome/i.test(navigator.userAgent) && !/edge/i.test(navigator.userAgent);
+
+      const chromeVoices = [
         'Google español de Estados Unidos',
         'Google español',
-        'Microsoft Pablo - Spanish (Mexico)',
+      ];
+
+      const safariVoices = [
+        'Paulina',
         'Jorge',
         'Diego',
-        'Reed',
-        'Rocko',
+        'Reed (Spanish (Mexico))',
+        'Eddy (Spanish (Mexico))',
       ];
-      const voice =
-        preferredVoices.reduce<SpeechSynthesisVoice | null>((found, name) => {
-          if (found) return found;
-          return voices.find((v) => v.name === name) ?? null;
-        }, null) ||
-        voices.find((v) => v.lang.includes('es')) ||
-        null;
 
-      const utterance = new SpeechSynthesisUtterance(clean);
-      utterance.lang = 'es-MX';
-      if (voice) utterance.voice = voice;
-      utterance.pitch = 0.7;
-      utterance.rate = 1.35;
+      const preferredList = isSafari ? safariVoices : chromeVoices;
+
+      let selectedVoice: SpeechSynthesisVoice | null = null;
+      for (const name of preferredList) {
+        selectedVoice = voices.find((v) => v.name === name) ?? null;
+        if (selectedVoice) break;
+      }
+
+      if (!selectedVoice) {
+        selectedVoice = voices.find((v) => v.lang.startsWith('es')) ?? null;
+      }
+
+      if (selectedVoice) utterance.voice = selectedVoice;
+
+      if (isSafari) {
+        utterance.rate = 1.0;
+        utterance.pitch = 0.85;
+      } else {
+        utterance.rate = 1.35;
+        utterance.pitch = 0.7;
+      }
+
       utterance.volume = 1.0;
+      utterance.lang = 'es-MX';
+
+      console.log(
+        'Voz seleccionada:', selectedVoice?.name ?? 'default',
+        '| Navegador:', isSafari ? 'Safari' : isChrome ? 'Chrome' : 'Otro',
+        '| Rate:', utterance.rate
+      );
+
+      window.speechSynthesis.speak(utterance);
+    };
+
+    const speakNow = () => {
+      const utterance = new SpeechSynthesisUtterance(clean);
 
       utterance.onstart = () => { setIsSpeaking(true); isSpeakingRef.current = true; };
       utterance.onend = onTTSEnd;
       utterance.onerror = onTTSEnd;
 
-      window.speechSynthesis.speak(utterance);
+      speakWithBestVoice(utterance);
     };
 
     const voices = window.speechSynthesis.getVoices();
