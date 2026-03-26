@@ -1,12 +1,18 @@
 # FinAgent 360
 
-**Tu copiloto financiero impulsado por IA** — Dashboard de banca digital construido con Next.js 14, TypeScript y Tailwind CSS.
+**Tu copiloto financiero impulsado por IA** — Dashboard de banca digital construido con Next.js 14, TypeScript y Tailwind CSS, con asistente de voz conversacional y canal de atención digital integrado con Salesforce Agentforce.
 
 ---
 
 ## Descripción
 
-FinAgent 360 es una interfaz de banca digital moderna con tema claro, diseñada para demostrar una experiencia de usuario premium en el sector fintech. Incluye un asistente de IA conversacional con voz bidireccional, gestión de tarjetas, historial de actividad, perfil de cuenta y centro de documentos — todo integrado en una sola aplicación web sin dependencias de APIs externas.
+FinAgent 360 es una interfaz de banca digital moderna con tema claro, diseñada para demostrar una experiencia de usuario premium en el sector fintech. Incluye:
+
+- Un **asistente de voz conversacional (Nexo)** impulsado por OpenAI y Web Speech API
+- Un **canal de chat con Salesforce Agentforce** (Messaging for Web) embebible
+- Gestión de tarjetas, historial de actividad, perfil de cuenta y centro de documentos
+
+La página `/chat` está dividida en dos paneles que pueden integrarse de forma independiente: el panel de voz (Nexo) y el widget de Agentforce.
 
 ---
 
@@ -22,7 +28,10 @@ FinAgent 360 es una interfaz de banca digital moderna con tema claro, diseñada 
 | clsx | 2.1.1 | Composición condicional de clases |
 | tailwind-merge | 2.4.0 | Merge seguro de clases Tailwind |
 
-**Sin dependencias externas de IA ni TTS** — todo usa APIs nativas del navegador (Web Speech API).
+**APIs externas utilizadas:**
+- **OpenAI API** (`gpt-4o-mini`) — respuestas conversacionales de Nexo (voz)
+- **Salesforce Agentforce** (Einstein AI Agent API) — chat de atención digital
+- **Web Speech API** (nativa del navegador) — STT y TTS sin SDK adicional
 
 ---
 
@@ -31,6 +40,27 @@ FinAgent 360 es una interfaz de banca digital moderna con tema claro, diseñada 
 - **Node.js** 18.17 o superior
 - **npm** 9 o superior (o equivalente con yarn/pnpm)
 - Navegador con soporte de Web Speech API (Chrome, Safari, Edge)
+- Variables de entorno configuradas (ver sección siguiente)
+
+---
+
+## Variables de entorno
+
+Crea un archivo `.env.local` en la raíz del proyecto con las siguientes variables:
+
+```env
+# OpenAI — respuestas del asistente de voz Nexo
+OPENAI_API_KEY=sk-...
+
+# Salesforce Agentforce — canal de chat digital
+SALESFORCE_INSTANCE_URL=https://tu-org.my.salesforce.com
+SALESFORCE_CLIENT_ID=3MVG9...
+SALESFORCE_CLIENT_SECRET=...
+AGENTFORCE_AGENT_ID=0Xx...
+SALESFORCE_RUNTIME_BASE_URL=https://api.salesforce.com
+```
+
+> Si estas variables no están configuradas, el panel de voz y el chat de agente mostrarán mensajes de error en consola, pero el resto de la aplicación seguirá funcionando con datos mock.
 
 ---
 
@@ -43,6 +73,9 @@ cd FinAgent-360
 
 # Instalar dependencias
 npm install
+
+# Configurar variables de entorno
+cp .env.local.example .env.local   # editar con tus credenciales
 
 # Iniciar servidor de desarrollo
 npm run dev
@@ -75,64 +108,80 @@ npm run dev
 ```
 FinAgent-360/
 ├── src/
-│   ├── app/                        # Rutas (Next.js App Router)
-│   │   ├── layout.tsx              # Layout raíz + metadata global
-│   │   ├── globals.css             # Variables CSS, utilidades globales y animaciones
-│   │   ├── page.tsx                # / → Dashboard principal
+│   ├── app/                            # Rutas (Next.js App Router)
+│   │   ├── layout.tsx                  # Layout raíz + metadata global
+│   │   ├── globals.css                 # Variables CSS, utilidades globales y animaciones
+│   │   ├── page.tsx                    # / → Dashboard principal
 │   │   ├── chat/
-│   │   │   └── page.tsx            # /chat → Asistente IA con voz
+│   │   │   └── page.tsx                # /chat → Asistente de voz + canal Agentforce
 │   │   ├── cards/
-│   │   │   └── page.tsx            # /cards → Gestión de tarjetas
+│   │   │   └── page.tsx                # /cards → Gestión de tarjetas
 │   │   ├── account/
-│   │   │   └── page.tsx            # /account → Perfil de usuario
+│   │   │   └── page.tsx                # /account → Perfil de usuario
 │   │   ├── activity/
-│   │   │   └── page.tsx            # /activity → Historial de actividad
-│   │   └── documents/
-│   │       └── page.tsx            # /documents → Centro de documentos
+│   │   │   └── page.tsx                # /activity → Historial de actividad
+│   │   ├── documents/
+│   │   │   └── page.tsx                # /documents → Centro de documentos
+│   │   └── api/
+│   │       ├── nexo/
+│   │       │   └── route.ts            # POST /api/nexo → OpenAI gpt-4o-mini (voz Nexo)
+│   │       └── agent/
+│   │           ├── session/
+│   │           │   └── route.ts        # POST/DELETE /api/agent/session → sesión Agentforce
+│   │           ├── message/
+│   │           │   └── route.ts        # POST /api/agent/message → mensaje a Agentforce
+│   │           ├── log/
+│   │           │   └── route.ts        # POST /api/agent/log → log de eventos
+│   │           └── test/
+│   │               └── route.ts        # GET /api/agent/test → health check Salesforce
 │   │
 │   ├── components/
 │   │   ├── layout/
-│   │   │   ├── Sidebar.tsx         # Barra lateral fija (240px) con navegación
-│   │   │   ├── Header.tsx          # Encabezado con título de página y acciones
-│   │   │   └── MainLayout.tsx      # Wrapper que compone Sidebar + Header + contenido
+│   │   │   ├── Sidebar.tsx             # Barra lateral fija (240px) con navegación
+│   │   │   ├── Header.tsx              # Encabezado con título de página y acciones
+│   │   │   └── MainLayout.tsx          # Wrapper que compone Sidebar + Header + contenido
 │   │   │
 │   │   ├── dashboard/
-│   │   │   ├── BalanceCard.tsx     # Tarjeta de saldo con toggle show/hide
-│   │   │   ├── QuickActions.tsx    # Accesos directos (transferir, pagar, recargar…)
-│   │   │   ├── AgentHighlight.tsx  # Banner de acceso al asistente IA
-│   │   │   └── RecentTransactions.tsx # Últimos movimientos
+│   │   │   ├── BalanceCard.tsx         # Tarjeta de saldo con toggle show/hide
+│   │   │   ├── QuickActions.tsx        # Accesos directos (transferir, pagar, recargar…)
+│   │   │   ├── AgentHighlight.tsx      # Banner de acceso al asistente IA
+│   │   │   └── RecentTransactions.tsx  # Últimos movimientos
 │   │   │
 │   │   ├── chat/
-│   │   │   ├── ChatInterface.tsx   # Chat completo con burbujas, typing indicator e input
-│   │   │   └── VoiceButton.tsx     # Botón de micrófono con ecualizador animado
+│   │   │   ├── NexoVoicePanel.tsx      # Panel de voz conversacional con Nexo (oscuro)
+│   │   │   ├── SalesforcePanel.tsx     # Widget embebible de chat Agentforce (claro)
+│   │   │   ├── ChatInterface.tsx       # Chat de texto conectado a Agentforce
+│   │   │   └── VoiceButton.tsx         # Botón de micrófono con ecualizador animado
 │   │   │
 │   │   ├── cards/
-│   │   │   ├── BankCard.tsx        # Componente visual de tarjeta bancaria
-│   │   │   └── CardActions.tsx     # Acciones: bloquear/desbloquear tarjeta
+│   │   │   ├── BankCard.tsx            # Componente visual de tarjeta bancaria
+│   │   │   └── CardActions.tsx         # Acciones: bloquear/desbloquear tarjeta
 │   │   │
 │   │   ├── activity/
-│   │   │   └── EventLog.tsx        # Timeline de eventos con pestañas de filtro
+│   │   │   └── EventLog.tsx            # Timeline de eventos con pestañas de filtro
 │   │   │
 │   │   ├── documents/
-│   │   │   └── DocumentCenter.tsx  # Lista de estados de cuenta con descarga simulada
+│   │   │   └── DocumentCenter.tsx      # Lista de estados de cuenta con descarga simulada
 │   │   │
 │   │   └── ui/
-│   │       ├── Button.tsx          # Botón con variantes (primary, ghost, outline…)
-│   │       ├── Badge.tsx           # Badge de estado con colores semánticos
-│   │       └── Card.tsx            # Contenedor de superficie con estilos glass
+│   │       ├── Button.tsx              # Botón con variantes (primary, ghost, outline…)
+│   │       ├── Badge.tsx               # Badge de estado con colores semánticos
+│   │       └── Card.tsx                # Contenedor de superficie con estilos glass
 │   │
 │   ├── hooks/
-│   │   └── useVoiceChat.ts         # Hook de voz: STT + TTS con Web Speech API
+│   │   ├── useNexoVoice.ts             # Hook de voz conversacional: STT + OpenAI + TTS
+│   │   └── useVoiceChat.ts             # Hook de voz legacy (STT + TTS local)
 │   │
 │   ├── lib/
-│   │   └── mock-data.ts            # Datos mock + helpers formatCurrency/formatDate/formatTime
+│   │   ├── salesforce.ts               # Cliente Salesforce: OAuth2 + Agentforce REST API
+│   │   └── mock-data.ts                # Datos mock + helpers formatCurrency/formatDate/formatTime
 │   │
 │   └── types/
-│       └── index.ts                # Interfaces TypeScript: User, Card, Transaction…
+│       └── index.ts                    # Interfaces TypeScript: User, Card, Transaction…
 │
-├── tailwind.config.ts              # Tokens de diseño, colores, animaciones personalizadas
-├── tsconfig.json                   # Configuración TypeScript con path alias (@/)
-├── next.config.mjs                 # Configuración Next.js
+├── tailwind.config.ts                  # Tokens de diseño, colores, animaciones personalizadas
+├── tsconfig.json                       # Configuración TypeScript con path alias (@/)
+├── next.config.mjs                     # Configuración Next.js
 └── package.json
 ```
 
@@ -155,16 +204,38 @@ Componentes:
 
 ### Asistente IA `/chat`
 
-Interfaz conversacional completa con soporte de voz bidireccional:
+Página de dos columnas (desktop) / pestañas (mobile) que combina dos canales independientes:
 
-- Mensajes con burbujas diferenciadas (usuario vs. asistente).
-- Indicador de escritura animado (typing dots) durante la respuesta.
-- **Quick actions** contextuales: Ver saldo, Bloquear tarjeta, Estado de cuenta, Actualizar dirección.
-- Respuestas mock predefinidas según la acción seleccionada (`aiResponses` en `mock-data.ts`).
-- Flujo de confirmación para el bloqueo de tarjeta (botones Confirmar / Cancelar).
-- Soporte básico de Markdown en respuestas del asistente (negritas con `**texto**`).
-- Envío con `Enter`, nueva línea con `Shift+Enter`.
-- **Voz:** micrófono para dictar mensajes + TTS para escuchar las respuestas del asistente.
+#### Panel izquierdo — Nexo Voice (`NexoVoicePanel`)
+
+Asistente de voz conversacional con diseño oscuro (slate-900/blue-950):
+
+- Botón central de micrófono con tres estados: **escuchando** (rojo), **pensando** (púrpura), **hablando** (cyan)
+- Ecualizador animado de barras mientras escucha o responde
+- Transcript en tiempo real mientras el usuario habla (burbuja flotante sobre el botón)
+- Historial de los últimos 4 intercambios de la conversación
+- Las respuestas de Nexo son generadas por **OpenAI `gpt-4o-mini`** vía `/api/nexo`
+- Si Nexo detecta que el usuario quiere realizar una acción concreta, sugiere escribirlo en el chat → el texto se pasa automáticamente al panel de Agentforce
+
+#### Panel derecho — Agentforce Chat (`SalesforcePanel`)
+
+Widget de chat con identidad de Salesforce (Messaging for Web):
+
+- Interfaz de mensajería estilo WhatsApp con burbujas diferenciadas
+- Logo de Salesforce y badge "Powered by Agentforce"
+- Recibe el texto sugerido por Nexo automáticamente en el campo de entrada
+- Conectado a **Salesforce Agentforce** vía `/api/agent/message`
+- Fallback: respuesta simulada mientras la integración con Agentforce se configura
+
+#### Comunicación entre paneles
+
+```
+NexoVoicePanel
+  └─ onActionDetected(texto) ──► ChatPage state
+                                      └─ suggestedInput ──► SalesforcePanel input
+```
+
+Cuando el usuario le pide a Nexo algo accionable (bloquear tarjeta, consultar saldo, etc.), Nexo detecta la intención y pre-rellena el campo de texto del canal de Agentforce. En mobile, también cambia la pestaña activa al panel de chat.
 
 ### Mis Tarjetas `/cards`
 
@@ -191,72 +262,73 @@ Interfaz conversacional completa con soporte de voz bidireccional:
 
 ---
 
-## Sistema de voz
+## Sistema de voz — Nexo
 
 ### Arquitectura
 
-El sistema de voz usa exclusivamente la **Web Speech API nativa del navegador** — sin SDKs externos ni llamadas a APIs de terceros.
-
 ```
-useVoiceChat (hook)
-├── SpeechRecognition API  → voz del usuario a texto (STT)
-└── SpeechSynthesis API    → texto del asistente a voz (TTS)
+useNexoVoice (hook)
+├── Web Speech API (SpeechRecognition)  → STT: voz del usuario a texto
+├── POST /api/nexo → OpenAI gpt-4o-mini → respuesta conversacional en español
+└── Web Speech API (SpeechSynthesis)    → TTS: respuesta de Nexo en audio
 
-VoiceButton (componente)
-└── Visualización del estado: idle / escuchando / hablando
+NexoVoicePanel (componente)
+└── Visualiza estado (escuchando / pensando / hablando) + historial
 ```
 
-### Hook `useVoiceChat` (`src/hooks/useVoiceChat.ts`)
+### Hook `useNexoVoice` (`src/hooks/useNexoVoice.ts`)
 
 ```typescript
 const {
-  isListening,    // true mientras el micrófono está activo
-  isSpeaking,     // true mientras el asistente está hablando
-  transcript,     // texto parcial en tiempo real mientras escucha
-  isSupported,    // false si el navegador no soporta Web Speech API
-  startListening, // inicia/detiene el micrófono
-  speak,          // reproduce un texto en voz alta
-  stopSpeaking,   // cancela el TTS en curso
-} = useVoiceChat({ onTranscript });
+  isListening,       // true mientras el micrófono está activo
+  isSpeaking,        // true mientras Nexo está hablando
+  isThinking,        // true mientras espera la respuesta de OpenAI
+  isSupported,       // false si el navegador no soporta Web Speech API
+  transcript,        // texto parcial en tiempo real mientras escucha
+  startConversation, // toggle on/off de la conversación
+  stopSpeaking,      // cancela el TTS en curso
+} = useNexoVoice({ onActionDetected });
 ```
 
-**Speech Recognition (STT):**
-- Idioma: `es-MX`
-- Resultados intermedios activados (`interimResults: true`) — muestra el texto mientras el usuario habla
-- Un resultado final dispara `onTranscript(text)` automáticamente
+**Flujo completo de una interacción:**
 
-**Text-to-Speech (TTS):**
-- Idioma: `es-MX`
-- Pitch: `0.8` (voz grave)
-- Rate: `0.95` (ritmo natural)
-- Volume: `1.0`
-- Selección de voz por nombre exacto — lista de preferencia en orden:
-  ```
-  'Google español de Estados Unidos'
-  'Google español'
-  ```
-  Si ninguna está disponible, usa la voz por defecto del sistema con `pitch: 0.8`.
+```
+1. Usuario presiona el botón central
+   → conversation mode ON → inicia SpeechRecognition (continuo)
 
-**Carga de voces (compatibilidad Safari/Chrome):**
+2. Usuario habla
+   → transcript parcial se muestra en tiempo real
+   → debounce de 1500ms tras el último fragmento final
 
-`speechSynthesis.getVoices()` puede devolver un array vacío en la primera llamada (especialmente en Chrome, que carga voces de forma asíncrona). El hook maneja ambos casos:
+3. Silencio detectado → debounce dispara
+   → recognition.stop()
+   → POST /api/nexo { message, history (últimos 6 turnos) }
 
-```typescript
-if (voices.length > 0) {
-  speakWithVoice(); // voces ya disponibles
-} else {
-  // Espera al evento onvoiceschanged
-  window.speechSynthesis.onvoiceschanged = speakWithVoice;
-  // Fallback para Safari (puede no disparar el evento)
-  setTimeout(speakWithVoice, 100);
-}
+4. OpenAI responde → texto limpiado (quita markdown)
+   → SpeechSynthesis reproduce la respuesta (TTS)
+
+5. TTS termina → recognition.start() de nuevo
+   → listo para el siguiente turno
+
+Interrupción: si el usuario habla mientras Nexo habla
+   → speechSynthesis.cancel() inmediato → toma el turno
 ```
 
-El flag `fired` previene ejecución doble cuando ambos mecanismos están activos.
+**Detección de intención accionable:**
+
+Si la respuesta de OpenAI contiene frases como `"escríbelo en el chat"` o `"en el chat"`, el hook invoca `onActionDetected(últimoMensajeUsuario)` para trasladar la acción al canal de Agentforce.
+
+**TTS — selección de voz:**
+
+| Navegador | Voces preferidas |
+|---|---|
+| Chrome | Google español de Estados Unidos → Google español |
+| Safari (macOS) | Paulina → Jorge → Diego → Reed (Spanish Mexico) → Eddy (Spanish Mexico) |
+| Fallback | Primera voz `lang.startsWith('es')` disponible |
+
+Parámetros de voz: `rate: 1.35` (Chrome) / `1.0` (Safari), `pitch: 0.7` / `0.85`, `lang: es-MX`.
 
 **Limpieza de texto antes de TTS:**
-
-El hook elimina marcado Markdown y símbolos antes de hablar, para que el audio suene natural:
 
 ```typescript
 text
@@ -266,65 +338,78 @@ text
   .replace(/\n+/g, '. ')            // convierte saltos en pausas
 ```
 
-**Debug:** al llamar `speak()`, el hook imprime en consola la lista completa de voces disponibles y cuál fue seleccionada. Útil para identificar nombres exactos en nuevos dispositivos.
+**Compatibilidad de voces (Chrome/Safari):**
 
-### Componente `VoiceButton` (`src/components/chat/VoiceButton.tsx`)
+`speechSynthesis.getVoices()` puede devolver array vacío en la primera llamada. El hook espera al evento `onvoiceschanged` con fallback de `setTimeout(100ms)` para Safari. El flag `fired` previene ejecución doble.
 
-Botón circular de micrófono con tres estados visuales:
+---
 
-| Estado | Ícono | Color | Efecto |
-|---|---|---|---|
-| Inactivo | `Mic` | Gris translúcido | — |
-| Escuchando | `MicOff` | Rojo | `animate-pulse` |
-| Hablando | `Volume2` | Cyan (`#06B6D4`) | Brillo cyan |
+## Integración Salesforce Agentforce
 
-Cuando está activo (escuchando o hablando), muestra un **ecualizador animado** de 5 barras con alturas y delays escalonados (`voiceWave` keyframe), en rojo para micrófono y cyan para TTS.
-
-Se renderiza `null` si `isSupported === false` (navegador sin Web Speech API).
-
-### Flujo de interacción por voz
+### Arquitectura
 
 ```
-1. Usuario presiona el botón de micrófono
-   → Si el asistente está hablando: cancela el TTS inmediatamente
-   → Si no: inicia SpeechRecognition
+src/lib/salesforce.ts
+├── getSalesforceToken()      → OAuth2 client_credentials (token cacheado 55 min)
+├── createAgentSession()      → POST /einstein/ai-agent/v1/agents/:id/sessions
+├── deleteAgentSession()      → DELETE /einstein/ai-agent/v1/sessions/:sessionId
+└── sendAgentMessage()        → POST /einstein/ai-agent/v1/sessions/:sessionId/messages
 
-2. Usuario habla
-   → Transcript parcial aparece como placeholder en el textarea
-
-3. Silencio detectado → resultado final
-   → voiceTriggeredRef.current = true
-   → sendMessage(transcript) se ejecuta automáticamente
-
-4. Asistente genera respuesta (mock, 1.2–1.8s de delay)
-
-5. useEffect detecta nuevo mensaje de asistente + voiceTriggeredRef === true
-   → speak(response) → TTS reproduce la respuesta
-   → voiceTriggeredRef.current = false (evita re-ejecución en re-renders)
+API Routes (Next.js)
+├── POST   /api/agent/session  → crea sesión al cargar ChatInterface
+├── DELETE /api/agent/session  → destruye sesión al desmontar ChatInterface
+├── POST   /api/agent/message  → envía mensaje y retorna respuesta del agente
+└── GET    /api/agent/test     → health check de la conexión Salesforce
 ```
 
-### Voces disponibles por plataforma
+### Gestión de sesión
 
-Las voces disponibles dependen del SO y el navegador. Para ver la lista exacta en tu dispositivo, abre la consola del navegador en `/chat` y envía cualquier mensaje por voz — aparecerá el log `Voces disponibles:`.
+`ChatInterface` crea una sesión de Agentforce al montarse y la destruye en el cleanup del `useEffect`. Cada mensaje se envía con un `sequenceId` incremental como requiere el protocolo Einstein AI Agent.
 
-**macOS / Safari:**
-- Voces del sistema: Paulina, Mónica (femeninas), Eddy, Reed, Rocko, Grandpa (masculinas) — en español (México)
+### Variables de entorno requeridas
 
-**Chrome (cualquier SO):**
-- Google español, Google español de Estados Unidos
+| Variable | Descripción |
+|---|---|
+| `SALESFORCE_INSTANCE_URL` | URL base de la org (`https://tu-org.my.salesforce.com`) |
+| `SALESFORCE_CLIENT_ID` | Client ID de la Connected App |
+| `SALESFORCE_CLIENT_SECRET` | Client Secret de la Connected App |
+| `AGENTFORCE_AGENT_ID` | ID del agente en Salesforce (`0Xx...`) |
+| `SALESFORCE_RUNTIME_BASE_URL` | Endpoint runtime de Agentforce (`https://api.salesforce.com`) |
 
-**Windows:**
-- Microsoft Pablo, Microsoft Sabina (depende de los language packs instalados)
+### Widget `SalesforcePanel` — snippet embebible
 
-Para cambiar la voz, editar la función `speakWithVoice` en `useVoiceChat.ts`:
+`SalesforcePanel` está diseñado para ser reutilizable de forma independiente. Acepta:
 
 ```typescript
-const maleVoice = voices.find(
-  (v) =>
-    v.name === 'Google español de Estados Unidos' ||
-    v.name === 'Google español'
-);
+interface SalesforcePanelProps {
+  suggestedInput?: string;   // pre-rellena el input desde un sistema externo
+  onInputChange?: (value: string) => void;  // notifica cambios al padre
+}
 ```
+
+El panel puede embeberse en cualquier página o app externa como widget de atención digital, conectándolo a `/api/agent/*` o directamente a la API de Agentforce.
+
+---
+
+## API de voz — `/api/nexo`
+
+```
+POST /api/nexo
+Content-Type: application/json
+
+{
+  "message": "¿Cuánto cuesta bloquear mi tarjeta?",
+  "history": [                          // opcional — últimos turnos (máx 6)
+    { "role": "user", "content": "..." },
+    { "role": "assistant", "content": "..." }
+  ]
+}
+
+→ 200 { "reply": "En BreBank bloquear tu tarjeta es completamente gratuito..." }
+→ 500 { "error": "OpenAI error" }
+```
+
+**System prompt (Nexo):** Nexo es el ejecutivo bancario virtual de BreBank. Responde solo en español conversacional, sin listas ni bullets, con 2-3 oraciones por turno. Conoce políticas de bloqueo de tarjetas, requisitos de productos, tiempos de entrega, devoluciones y estados de cuenta.
 
 ---
 
@@ -338,17 +423,19 @@ const maleVoice = voices.find(
 | `surface` | `#FFFFFF` | Superficies de tarjetas/paneles |
 | `primary` | `#2563EB` | Azul principal (botones, gradientes) |
 | `cyan` | `#06B6D4` | Acento cyan (gradientes, voz activa) |
-| `purple` | `#7C3AED` | Acento IA / asistente |
+| `purple` | `#7C3AED` | Acento IA / asistente / pensando |
 | `success` | `#10B981` | Estados positivos |
 | `warning` | `#F59E0B` | Alertas / pendientes |
 | `error` | `#EF4444` | Errores / bloqueados |
 
+El panel de voz de Nexo usa la paleta inversa: fondo `slate-900` / `blue-950` con tipografía y acciones en blanco.
+
 ### Clases CSS utilitarias (`globals.css`)
 
 ```css
-.glass-card     /* Fondo translúcido con blur — superficies flotantes */
-.gradient-text  /* Texto con gradiente azul → cyan */
-.card-hover     /* Efecto hover sutil en tarjetas */
+.glass-card      /* Fondo translúcido con blur — superficies flotantes */
+.gradient-text   /* Texto con gradiente azul → cyan */
+.card-hover      /* Efecto hover sutil en tarjetas */
 .animate-fade-in /* Entrada suave desde abajo (fadeIn 0.4s) */
 ```
 
@@ -363,6 +450,8 @@ const maleVoice = voices.find(
 | `animate-float` | Flotación vertical suave (3s loop) |
 | `animate-spin-slow` | Rotación lenta (8s loop) |
 
+Las animaciones del panel de voz (`nexoPanelWave`, `nexoPanelDot`) están definidas inline en `NexoVoicePanel.tsx` para evitar dependencia del scope global.
+
 ### Tipografía
 
 Fuente principal: **Inter** → `-apple-system` → `BlinkMacSystemFont` → `sans-serif`.
@@ -371,7 +460,7 @@ Fuente principal: **Inter** → `-apple-system` → `BlinkMacSystemFont` → `sa
 
 ## Datos mock
 
-Toda la información proviene de `src/lib/mock-data.ts`. No hay llamadas a APIs externas ni bases de datos.
+La información de usuario, tarjetas, transacciones y actividad proviene de `src/lib/mock-data.ts`.
 
 **Usuario de prueba:**
 - Nombre: Alejandro Morales Reyes
@@ -383,8 +472,7 @@ Toda la información proviene de `src/lib/mock-data.ts`. No hay llamadas a APIs 
 - 10 transacciones recientes con categorías e íconos
 - 10 eventos de actividad (login, bloqueo, pagos, actualizaciones)
 - 6 estados de cuenta mensuales
-- Historial de chat de muestra
-- Respuestas de IA por tipo de acción (`aiResponses`)
+- Historial de chat de muestra y respuestas mock por tipo de acción
 
 **Helpers incluidos:**
 ```typescript
@@ -421,13 +509,14 @@ interface Statement     // Estado de cuenta (period, status, transactions, balan
 
 ## Roadmap / posibles extensiones
 
-- Integración con API real de Claude / OpenAI para respuestas dinámicas del asistente
 - Autenticación con NextAuth.js
 - Conexión a base de datos (Prisma + PostgreSQL)
 - Notificaciones push / WebSockets para actividad en tiempo real
 - Internacionalización (i18n) para soporte multi-idioma
 - Tests con Jest + React Testing Library
 - Modo oscuro (dark mode)
+- Migrar TTS a ElevenLabs o Azure TTS para voz más natural
+- Activar el widget oficial de Salesforce Messaging for Web (MIAW) en producción
 
 ---
 
