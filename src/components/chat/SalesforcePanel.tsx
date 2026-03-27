@@ -47,7 +47,7 @@ export default function SalesforcePanel({ suggestedInput }: SalesforcePanelProps
         {suggestedInput && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700 max-w-xs">
             <p className="font-medium mb-1">Nexo sugiere escribir:</p>
-            <p>"{suggestedInput}"</p>
+            <p>&quot;{suggestedInput}&quot;</p>
           </div>
         )}
       </div>
