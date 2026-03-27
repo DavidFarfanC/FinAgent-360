@@ -38,7 +38,7 @@ export default function SalesforcePanel({ suggestedInput }: SalesforcePanelProps
           <p className="text-gray-400 text-xs mt-1">Se abrirá en una ventana segura de Salesforce</p>
         </div>
         <button
-          onClick={() => window.open(vfUrl, 'nexo-chat', 'width=400,height=600')}
+          onClick={() => window.open(vfUrl, 'nexo-chat', 'width=420,height=650,left=100,top=100')}
           className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-6 py-3 rounded-xl transition-colors flex items-center gap-2"
         >
           <span>💬</span>
