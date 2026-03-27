@@ -1,66 +1,11 @@
 'use client'
-import { useEffect, useRef } from 'react'
 
 interface SalesforcePanelProps {
   suggestedInput?: string
 }
 
 export default function SalesforcePanel({ suggestedInput }: SalesforcePanelProps) {
-  const bootstrapLoaded = useRef(false)
-
-  useEffect(() => {
-    if (bootstrapLoaded.current) return
-    bootstrapLoaded.current = true
-
-    // CSP meta tag para permitir dominios de Salesforce (complementa los headers del servidor)
-    const meta = document.createElement('meta')
-    meta.httpEquiv = 'Content-Security-Policy'
-    meta.content = [
-      "frame-src 'self' https://*.my.site.com https://*.salesforce.com https://*.force.com https://*.salesforce-scrt.com",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.my.site.com https://*.salesforce.com https://*.salesforce-scrt.com",
-    ].join('; ')
-    document.head.appendChild(meta)
-
-    // Agrega la función de init al window
-    const initScript = document.createElement('script')
-    initScript.type = 'text/javascript'
-    initScript.innerHTML = `
-      window.initEmbeddedMessaging = function() {
-        try {
-          embeddedservice_bootstrap.settings.language = 'en_US';
-          embeddedservice_bootstrap.init(
-            '00Daj00000mMjCe',
-            'ESA_Web_Deployment',
-            'https://orgfarm-6448954ded-dev-ed.develop.my.site.com/ESWESAWebDeployment1724800920657',
-            {
-              scrt2URL: 'https://orgfarm-6448954ded-dev-ed.develop.my.salesforce-scrt.com'
-            }
-          );
-        } catch (err) {
-          console.error('Error loading Embedded Messaging: ', err);
-        }
-      };
-    `
-    document.body.appendChild(initScript)
-
-    // Carga el bootstrap script
-    const bootstrapScript = document.createElement('script')
-    bootstrapScript.type = 'text/javascript'
-    bootstrapScript.src = 'https://orgfarm-6448954ded-dev-ed.develop.my.site.com/ESWESAWebDeployment1724800920657/assets/js/bootstrap.min.js'
-    bootstrapScript.onload = () => {
-      if (typeof (window as any).initEmbeddedMessaging === 'function') {
-        (window as any).initEmbeddedMessaging()
-      }
-    }
-    document.body.appendChild(bootstrapScript)
-
-    return () => {
-      // Cleanup al desmontar
-      if (document.head.contains(meta)) document.head.removeChild(meta)
-      if (document.body.contains(initScript)) document.body.removeChild(initScript)
-      if (document.body.contains(bootstrapScript)) document.body.removeChild(bootstrapScript)
-    }
-  }, [])
+  const vfUrl = 'https://orgfarm-6448954ded-dev-ed--c.develop.vf.force.com/apex/BreBankNexo'
 
   return (
     <div className="flex flex-col h-full">
@@ -89,16 +34,20 @@ export default function SalesforcePanel({ suggestedInput }: SalesforcePanelProps
           </svg>
         </div>
         <div>
-          <p className="text-gray-600 text-sm font-medium">El chat de Agentforce aparecerá</p>
-          <p className="text-gray-400 text-xs mt-1">como botón flotante en la esquina inferior derecha</p>
+          <p className="text-gray-700 text-sm font-semibold">Chatea con Nexo en Agentforce</p>
+          <p className="text-gray-400 text-xs mt-1">Se abrirá en una ventana segura de Salesforce</p>
         </div>
-        <div className="bg-blue-50 rounded-lg p-3 text-xs text-blue-600 max-w-xs">
-          💡 Haz clic en el botón azul que aparece abajo a la derecha para iniciar una conversación con Nexo
-        </div>
+        <button
+          onClick={() => window.open(vfUrl, 'nexo-chat', 'width=400,height=600')}
+          className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-6 py-3 rounded-xl transition-colors flex items-center gap-2"
+        >
+          <span>💬</span>
+          Abrir chat con Nexo
+        </button>
         {suggestedInput && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700 max-w-xs">
             <p className="font-medium mb-1">Nexo sugiere escribir:</p>
-            <p>&quot;{suggestedInput}&quot;</p>
+            <p>"{suggestedInput}"</p>
           </div>
         )}
       </div>
