@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from 'next/server'
 
 const INSTANCE_URL = process.env.SALESFORCE_INSTANCE_URL!
@@ -14,8 +16,13 @@ async function getToken() {
       client_secret: CLIENT_SECRET,
     }),
   })
-  const data = await res.json()
-  return data.access_token as string
+  const text = await res.text()
+  try {
+    const data = JSON.parse(text)
+    return data.access_token as string
+  } catch {
+    throw new Error(`Token parse failed: ${text.substring(0, 200)}`)
+  }
 }
 
 export async function GET() {
