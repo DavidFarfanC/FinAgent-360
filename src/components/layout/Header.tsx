@@ -9,7 +9,7 @@ interface HeaderProps {
 export const Header = ({ title, subtitle }: HeaderProps) => {
   return (
     <header className="flex items-center justify-between h-[72px] px-8 border-b border-slate-200 bg-white sticky top-0 z-30">
-      <div>
+      <div className="pl-10 md:pl-0">
         <h1 className="text-lg font-semibold text-slate-900">{title}</h1>
         {subtitle && (
           <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>

@@ -21,10 +21,10 @@ export default function DashboardPage() {
         </div>
 
         {/* Grid balanceado */}
-        <div className="grid grid-cols-3 gap-4 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
 
           {/* Izquierda: saldo + acciones + movimientos */}
-          <div className="col-span-2 space-y-4">
+          <div className="col-span-1 md:col-span-2 space-y-4">
             <BalanceCard />
             <QuickActions />
             <RecentTransactions />
