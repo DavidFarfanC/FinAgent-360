@@ -54,6 +54,10 @@ export default function Section0QR() {
           <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
           Powered by Salesforce Agentforce
         </div>
+
+        <div className="inline-flex items-center gap-2 bg-[#0C2A30] text-[#06B6D4] border border-[#06B6D4]/20 px-5 py-2 rounded-full text-xs font-semibold tracking-wide">
+          🏆 Equipo 37 — Hackathon IA Agéntica 2026
+        </div>
       </div>
     </section>
   );

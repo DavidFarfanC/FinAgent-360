@@ -6,9 +6,10 @@ import Section1Problem from './_sections/Section1Problem';
 import Section2Voice from './_sections/Section2Voice';
 import Section3Solution from './_sections/Section3Solution';
 import Section4Architecture from './_sections/Section4Architecture';
+import Section6Team from './_sections/Section6Team';
 import Section5Scale from './_sections/Section5Scale';
 
-const SECTION_LABELS = ['Inicio', 'Problema', 'Voz', 'Solución', 'Arquitectura', 'Escala'];
+const SECTION_LABELS = ['Inicio', 'Problema', 'Voz', 'Solución', 'Arquitectura', 'Escala', 'Equipo'];
 
 export default function PitchPage() {
   const [activeSection, setActiveSection] = useState(0);
@@ -106,6 +107,11 @@ export default function PitchPage() {
         <div ref={setSectionRef(5)} className="snap-start">
           <Section5Scale />
         </div>
+
+        {/* Section 6 — Team */}
+        <div ref={setSectionRef(6)} className="snap-start">
+          <Section6Team />
+        </div>
       </div>
 
       {/* Lateral navigation dots */}
@@ -144,11 +150,41 @@ export default function PitchPage() {
         ))}
       </nav>
 
-      {/* Section counter (bottom left) */}
-      <div className="fixed bottom-5 left-5 z-50 text-[#94A3B8] text-xs font-mono select-none">
-        {String(activeSection + 1).padStart(2, '0')}{' '}
-        <span className="text-[#1E293B]">/</span>{' '}
-        {String(SECTION_LABELS.length).padStart(2, '0')}
+      {/* Team badge — fixed bottom-left */}
+      <div className="hidden md:block fixed bottom-6 left-6 z-50 transition-transform duration-200 hover:scale-105">
+        <div className="bg-[#111827] border border-[#1E293B] rounded-xl shadow-2xl px-4 py-3 flex flex-col gap-2 min-w-[200px]">
+          {/* Header row */}
+          <div className="flex items-center gap-2">
+            <span className="text-[#F8FAFC] text-xs font-bold">FinAgent360</span>
+            <span className="text-[#94A3B8] text-xs">·</span>
+            <span className="bg-[#2563EB] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+              Equipo 37
+            </span>
+          </div>
+
+          {/* Divider */}
+          <div className="h-px bg-[#1E293B]" />
+
+          {/* Advisor */}
+          <div>
+            <p className="text-[#F8FAFC] text-xs">👩‍🏫 Mtra. Mónica García R.</p>
+            <p className="text-[#94A3B8] text-[10px] italic">Asesora</p>
+          </div>
+
+          {/* Divider */}
+          <div className="h-px bg-[#1E293B]" />
+
+          {/* Members */}
+          <div className="flex flex-col gap-0.5">
+            <p className="text-[#F8FAFC] text-xs">👩‍💻 Kamila García Zamora</p>
+            <p className="text-[#F8FAFC] text-xs">💻 David Farfán C.</p>
+          </div>
+
+          {/* Footer */}
+          <p className="text-[#06B6D4] text-[9px] font-medium tracking-wide">
+            Hackathon IA Agéntica 2026
+          </p>
+        </div>
       </div>
 
       {/* Keyboard hint */}
