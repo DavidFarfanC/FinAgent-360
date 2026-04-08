@@ -39,6 +39,7 @@ export function NexoVoicePanel({ onActionDetected }: NexoVoicePanelProps) {
     isThinking,
     isSupported,
     transcript,
+    voiceError,
     startConversation,
   } = useNexoVoice({
     onActionDetected: (text) => {
@@ -209,8 +210,14 @@ export function NexoVoicePanel({ onActionDetected }: NexoVoicePanelProps) {
         </div>
 
         {!isSupported && (
-          <p className="text-white/30 text-xs mt-3 text-center">
-            Tu navegador no soporta Web Speech API
+          <p className="text-white/30 text-xs mt-3 text-center px-2">
+            Tu navegador no soporta reconocimiento de voz.
+            Intenta con Safari en iPhone o Chrome en Android.
+          </p>
+        )}
+        {voiceError && (
+          <p className="text-red-400/80 text-xs mt-3 text-center px-2 leading-relaxed">
+            {voiceError}
           </p>
         )}
       </div>

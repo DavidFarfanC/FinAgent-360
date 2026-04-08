@@ -44,6 +44,26 @@ declare global {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── iOS / browser detection helpers ──────────────────────────────────────────
+const getIsIOS = () =>
+  typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+const getIsMobile = () =>
+  typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+const getIsSafari = () =>
+  typeof navigator !== 'undefined' &&
+  /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+/** Safe cross-browser constructor getter — works with (window as any) pattern */
+const getSpeechRecognition = (): SpeechRecognitionCtor | null => {
+  if (typeof window === 'undefined') return null;
+  // eslint-disable-next-line
+  const w = window as any;
+  return (w.SpeechRecognition || w.webkitSpeechRecognition) ?? null;
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface HistoryMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -59,6 +79,7 @@ export interface UseNexoVoiceReturn {
   isThinking: boolean;
   isSupported: boolean;
   transcript: string;
+  voiceError: string | null;
   startConversation: () => void;
   stopSpeaking: () => void;
 }
@@ -75,6 +96,7 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
   const [isThinking, setIsThinking] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
   const [transcript, setTranscript] = useState('');
+  const [voiceError, setVoiceError] = useState<string | null>(null);
 
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const historyRef = useRef<HistoryMessage[]>([]);
@@ -90,17 +112,46 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
 
   useEffect(() => { onActionDetectedRef.current = onActionDetected; });
 
+  // ── Problem 5 — Preload voices (iOS loads them async) ─────────────────────
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const loadVoices = () => { window.speechSynthesis.getVoices(); };
+    loadVoices();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }, []);
+
+  // ── Problem 6 — Unlock AudioContext on first user interaction (iOS Safari) ─
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const unlockSafariAudio = () => {
+      const unlock = new SpeechSynthesisUtterance('');
+      unlock.volume = 0;
+      window.speechSynthesis.speak(unlock);
+      window.speechSynthesis.cancel();
+    };
+    document.addEventListener('touchstart', unlockSafariAudio, { once: true });
+    document.addEventListener('click', unlockSafariAudio, { once: true });
+    return () => {
+      document.removeEventListener('touchstart', unlockSafariAudio);
+      document.removeEventListener('click', unlockSafariAudio);
+    };
+  }, []);
+
   // ── Try to (re)start recognition — safe wrapper ───────────────────────────
   const tryStartRecognition = useCallback(() => {
     if (!isConversationActiveRef.current) return;
     try { recognitionRef.current?.start(); } catch { /* already active */ }
   }, []);
 
-  // ── TTS speak ─────────────────────────────────────────────────────────────
+  // ── Problem 4 — TTS speak with chunking for iOS Safari ────────────────────
   const speak = useCallback((text: string) => {
     if (typeof window === 'undefined') return;
 
-    const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const isIOS = getIsIOS();
+    const isMobile = getIsMobile();
+    const isSafari = getIsSafari();
 
     const clean = text
       .replace(/\*\*(.*?)\*\*/g, '$1')
@@ -109,90 +160,64 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
       .replace(/\n+/g, '. ')
       .trim();
 
-    const textToSpeak = isMobileDevice ? clean.substring(0, 200) : clean;
-
     window.speechSynthesis.cancel();
 
-    const onTTSEnd = () => {
+    const onAllDone = () => {
       setIsSpeaking(false);
       isSpeakingRef.current = false;
-      // Resume listening after Nexo finishes speaking
       tryStartRecognition();
     };
 
-    const speakWithBestVoice = (utterance: SpeechSynthesisUtterance) => {
+    const getSpanishVoice = (): SpeechSynthesisVoice | null => {
       const voices = window.speechSynthesis.getVoices();
-
-      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-      const isChrome = /chrome/i.test(navigator.userAgent) && !/edge/i.test(navigator.userAgent);
-
-      const chromeVoices = [
-        'Google español de Estados Unidos',
-        'Google español',
-      ];
-
-      const safariVoices = [
-        'Paulina',
-        'Jorge',
-        'Diego',
-        'Reed (Spanish (Mexico))',
-        'Eddy (Spanish (Mexico))',
-      ];
-
-      const preferredList = isSafari ? safariVoices : chromeVoices;
-
-      let selectedVoice: SpeechSynthesisVoice | null = null;
-      for (const name of preferredList) {
-        selectedVoice = voices.find((v) => v.name === name) ?? null;
-        if (selectedVoice) break;
+      const safariVoices = ['Paulina', 'Jorge', 'Diego', 'Reed (Spanish (Mexico))', 'Eddy (Spanish (Mexico))'];
+      const chromeVoices = ['Google español de Estados Unidos', 'Google español'];
+      const preferred = isSafari || isIOS ? safariVoices : chromeVoices;
+      for (const name of preferred) {
+        const v = voices.find((v) => v.name === name);
+        if (v) return v;
       }
-
-      if (!selectedVoice) {
-        selectedVoice = voices.find((v) => v.lang.startsWith('es')) ?? null;
-      }
-
-      if (selectedVoice) utterance.voice = selectedVoice;
-
-      if (isMobileDevice) {
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
-      } else if (isSafari) {
-        utterance.rate = 1.0;
-        utterance.pitch = 0.85;
-      } else {
-        utterance.rate = 1.35;
-        utterance.pitch = 0.7;
-      }
-
-      utterance.volume = 1.0;
-      utterance.lang = 'es-MX';
-
-      console.log(
-        'Voz seleccionada:', selectedVoice?.name ?? 'default',
-        '| Navegador:', isSafari ? 'Safari' : isChrome ? 'Chrome' : 'Otro',
-        '| Rate:', utterance.rate
-      );
-
-      window.speechSynthesis.speak(utterance);
+      return voices.find((v) => v.lang.includes('es') || v.lang.includes('MX')) ?? null;
     };
 
-    const speakNow = () => {
-      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+    const doSpeak = () => {
+      // iOS Safari: split into sentences to prevent audio cutoff
+      const sentences: string[] = isIOS
+        ? (clean.match(/[^.!?]+[.!?]+/g) ?? [clean])
+        : [clean];
 
-      utterance.onstart = () => { setIsSpeaking(true); isSpeakingRef.current = true; };
-      utterance.onend = onTTSEnd;
-      utterance.onerror = onTTSEnd;
+      const voice = getSpanishVoice();
 
-      speakWithBestVoice(utterance);
+      const speakChunk = (index: number) => {
+        if (index >= sentences.length) { onAllDone(); return; }
+
+        const utterance = new SpeechSynthesisUtterance(sentences[index].trim());
+        utterance.lang = 'es-MX';
+        utterance.volume = 1.0;
+        utterance.rate = isMobile ? 0.9 : isSafari ? 1.0 : 1.35;
+        utterance.pitch = isMobile ? 1.0 : isSafari ? 0.85 : 0.7;
+        if (voice) utterance.voice = voice;
+
+        if (index === 0) {
+          utterance.onstart = () => { setIsSpeaking(true); isSpeakingRef.current = true; };
+        }
+        utterance.onend = () => speakChunk(index + 1);
+        utterance.onerror = () => speakChunk(index + 1);
+
+        window.speechSynthesis.speak(utterance);
+      };
+
+      speakChunk(0);
     };
 
+    // Wait for voices if not yet loaded
     const voices = window.speechSynthesis.getVoices();
     if (voices.length > 0) {
-      speakNow();
+      doSpeak();
     } else {
       let fired = false;
-      window.speechSynthesis.onvoiceschanged = () => { if (fired) return; fired = true; speakNow(); };
-      setTimeout(() => { if (fired) return; fired = true; speakNow(); }, 100);
+      window.speechSynthesis.onvoiceschanged = () => { if (fired) return; fired = true; doSpeak(); };
+      setTimeout(() => { if (fired) return; fired = true; doSpeak(); }, 100);
     }
   }, [tryStartRecognition]);
 
@@ -241,27 +266,27 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
     }
   }, [speak]);
 
-  // ── Init SpeechRecognition (continuous) ───────────────────────────────────
+  // ── Problem 1 + 3 — Init SpeechRecognition with iOS-compatible config ─────
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const SpeechRecognitionAPI: SpeechRecognitionCtor | undefined =
-      window.SpeechRecognition ?? window.webkitSpeechRecognition;
-
-    if (!SpeechRecognitionAPI) return;
+    const SpeechRecognitionAPI = getSpeechRecognition();
+    if (!SpeechRecognitionAPI) {
+      // No support — isSupported stays false, UI will show the message
+      return;
+    }
     setIsSupported(true);
 
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const isMobile = getIsMobile();
 
     const recognition = new SpeechRecognitionAPI();
     recognition.lang = 'es-MX';
-    recognition.continuous = !isMobile;
-    recognition.interimResults = !isMobile;
+    recognition.continuous = !isMobile;     // OBLIGATORIO false en iOS
+    recognition.interimResults = !isMobile; // OBLIGATORIO false en iOS
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
       setIsListening(true);
-      // Interruption: user started speaking while Nexo was talking
       if (isSpeakingRef.current) {
         window.speechSynthesis.cancel();
         setIsSpeaking(false);
@@ -285,7 +310,6 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
       if (interim) setTranscript(interim);
 
       if (finalText.trim()) {
-        // Cancel TTS if Nexo is speaking (user interruption)
         if (isSpeakingRef.current) {
           window.speechSynthesis.cancel();
           setIsSpeaking(false);
@@ -296,12 +320,10 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
         pendingTranscriptRef.current += ' ' + finalText.trim();
         setTranscript(pendingTranscriptRef.current.trim());
 
-        // Reset debounce: 1500ms after last final result → send to OpenAI
         if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
         debounceTimerRef.current = setTimeout(() => {
           const text = pendingTranscriptRef.current.trim();
           pendingTranscriptRef.current = '';
-          // Pause recognition while thinking/speaking
           try { recognition.stop(); } catch { /* ignore */ }
           if (text) callNexo(text);
         }, 1500);
@@ -310,7 +332,6 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
 
     recognition.onend = () => {
       setIsListening(false);
-      // Auto-restart if conversation is active and Nexo is not responding
       if (
         isConversationActiveRef.current &&
         !isThinkingRef.current &&
@@ -322,23 +343,39 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
       }
     };
 
+    // ── Problem 7 — iOS-specific error handling ───────────────────────────
     recognition.onerror = ((event: { error: string }) => {
-      if (event.error === 'not-allowed') {
-        alert('Por favor permite el acceso al micrófono en tu navegador');
-        isConversationActiveRef.current = false;
-        setIsListening(false);
-        return;
-      }
-      setIsListening(false);
-      if (event.error === 'no-speech') return; // onend will handle restart
-      if (
-        isConversationActiveRef.current &&
-        !isThinkingRef.current &&
-        !isSpeakingRef.current
-      ) {
-        setTimeout(() => {
-          try { recognition.start(); } catch { /* ignore */ }
-        }, 500);
+      switch (event.error) {
+        case 'not-allowed':
+          setVoiceError(
+            'Permiso denegado. En iPhone: Ajustes → Safari → Micrófono → Permitir'
+          );
+          isConversationActiveRef.current = false;
+          setIsListening(false);
+          break;
+        case 'no-speech':
+          // Silently reset — onend will restart if conversation is active
+          setIsListening(false);
+          break;
+        case 'audio-capture':
+          setVoiceError('No se detectó micrófono. Verifica que no esté en uso por otra app.');
+          setIsListening(false);
+          break;
+        case 'network':
+          setVoiceError('Error de red. El reconocimiento de voz requiere conexión a internet.');
+          setIsListening(false);
+          break;
+        default:
+          setIsListening(false);
+          if (
+            isConversationActiveRef.current &&
+            !isThinkingRef.current &&
+            !isSpeakingRef.current
+          ) {
+            setTimeout(() => {
+              try { recognition.start(); } catch { /* ignore */ }
+            }, 500);
+          }
       }
     }) as () => void;
 
@@ -351,7 +388,7 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
     };
   }, [callNexo]);
 
-  // ── Public controls ───────────────────────────────────────────────────────
+  // ── Problem 2 — startConversation: recognition.start() is first sync call ─
   const startConversation = useCallback(() => {
     if (isConversationActiveRef.current) {
       // ── Turn OFF ──
@@ -364,19 +401,24 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
       setIsListening(false);
       setIsThinking(false);
       setTranscript('');
+      setVoiceError(null);
       isSpeakingRef.current = false;
       isThinkingRef.current = false;
     } else {
       // ── Turn ON ──
+      // recognition.start() MUST be the first sync instruction (Safari iOS policy)
       isConversationActiveRef.current = true;
       pendingTranscriptRef.current = '';
-      // Unlock audio context on iOS Safari (must be inside user gesture)
-      const unlock = new SpeechSynthesisUtterance('');
-      window.speechSynthesis.speak(unlock);
-      window.speechSynthesis.cancel();
+      setVoiceError(null);
+      try {
+        recognitionRef.current?.start();
+      } catch {
+        // Safari throws if already active — stop and retry
+        recognitionRef.current?.stop();
+        try { recognitionRef.current?.start(); } catch { /* ignore */ }
+      }
       setIsSpeaking(false);
       isSpeakingRef.current = false;
-      try { recognitionRef.current?.start(); } catch { /* already active */ }
     }
   }, []);
 
@@ -387,5 +429,14 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
     isSpeakingRef.current = false;
   }, []);
 
-  return { isListening, isSpeaking, isThinking, isSupported, transcript, startConversation, stopSpeaking };
+  return {
+    isListening,
+    isSpeaking,
+    isThinking,
+    isSupported,
+    transcript,
+    voiceError,
+    startConversation,
+    stopSpeaking,
+  };
 }
