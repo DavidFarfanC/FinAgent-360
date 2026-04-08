@@ -174,6 +174,7 @@ export function NexoVoicePanel({ onActionDetected }: NexoVoicePanelProps) {
           )}
 
           <button
+            type="button"
             onClick={startConversation}
             disabled={!isSupported}
             className={clsx(

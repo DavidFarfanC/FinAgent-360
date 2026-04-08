@@ -1,7 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import Section0QR from './_sections/Section0QR';
+
+const QRCodeSVG = dynamic(
+  () => import('qrcode.react').then((m) => m.QRCodeSVG),
+  { ssr: false }
+);
 import Section1Problem from './_sections/Section1Problem';
 import Section2Voice from './_sections/Section2Voice';
 import Section3Solution from './_sections/Section3Solution';
@@ -184,6 +190,24 @@ export default function PitchPage() {
           <p className="text-[#06B6D4] text-[9px] font-medium tracking-wide">
             Hackathon IA Agéntica 2026
           </p>
+        </div>
+      </div>
+
+      {/* QR popup — fixed bottom-right */}
+      <div className="hidden md:flex flex-col fixed bottom-6 right-6 z-50 transition-transform duration-200 hover:scale-105 w-48 bg-[#111827] border border-[#1E293B] rounded-2xl shadow-2xl p-4 gap-2">
+        <p className="text-[#94A3B8] text-xs text-center">📱 Escanea para ver la app</p>
+        <div className="rounded-lg overflow-hidden mx-auto">
+          <QRCodeSVG
+            value="https://fin-agent-360.vercel.app"
+            size={128}
+            bgColor="#ffffff"
+            fgColor="#2563EB"
+            level="M"
+          />
+        </div>
+        <p className="text-[#06B6D4] text-xs text-center">fin-agent-360.vercel.app</p>
+        <div className="border-t border-[#1E293B] mt-0 pt-2">
+          <p className="text-[#94A3B8] text-xs text-center">🏆 Equipo 37</p>
         </div>
       </div>
 

@@ -1,4 +1,5 @@
 'use client';
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -12,6 +13,8 @@ import {
   Settings,
   LogOut,
   Shield,
+  Menu,
+  X,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -27,11 +30,45 @@ const navItems = [
 
 export const Sidebar = () => {
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-[240px] flex flex-col border-r border-slate-200 bg-white z-40">
+    <>
+      {/* Hamburger button — mobile only */}
+      <button
+        type="button"
+        onClick={() => setMobileOpen(true)}
+        className="md:hidden fixed top-4 left-4 z-40 p-2 rounded-lg bg-white border border-slate-200 shadow-sm"
+        aria-label="Abrir menú"
+      >
+        <Menu className="w-5 h-5 text-slate-600" />
+      </button>
+
+      {/* Overlay — mobile only */}
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/60 z-40"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+    <aside
+      className={clsx(
+        'fixed inset-y-0 left-0 w-[240px] flex flex-col border-r border-slate-200 bg-white z-50 transition-transform duration-300',
+        mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+      )}
+    >
       {/* Logo */}
       <div className="flex items-center gap-3 px-6 h-[72px] border-b border-slate-200">
+        {/* X button — mobile only */}
+        <button
+          type="button"
+          onClick={() => setMobileOpen(false)}
+          className="md:hidden absolute right-3 top-3 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+          aria-label="Cerrar menú"
+        >
+          <X className="w-4 h-4 text-slate-500" />
+        </button>
         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/20 flex-shrink-0">
           <Shield className="w-5 h-5 text-white" />
         </div>
@@ -57,6 +94,7 @@ export const Sidebar = () => {
             <Link
               key={href}
               href={href}
+              onClick={() => setMobileOpen(false)}
               className={clsx(
                 'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group relative',
                 isActive
@@ -128,5 +166,6 @@ export const Sidebar = () => {
         </div>
       </div>
     </aside>
+    </>
   );
 };

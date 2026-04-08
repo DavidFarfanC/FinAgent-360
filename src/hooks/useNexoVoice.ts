@@ -100,12 +100,16 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
   const speak = useCallback((text: string) => {
     if (typeof window === 'undefined') return;
 
+    const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
     const clean = text
       .replace(/\*\*(.*?)\*\*/g, '$1')
       .replace(/\*(.*?)\*/g, '$1')
       .replace(/[✓•·]/g, '')
       .replace(/\n+/g, '. ')
       .trim();
+
+    const textToSpeak = isMobileDevice ? clean.substring(0, 200) : clean;
 
     window.speechSynthesis.cancel();
 
@@ -149,7 +153,10 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
 
       if (selectedVoice) utterance.voice = selectedVoice;
 
-      if (isSafari) {
+      if (isMobileDevice) {
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+      } else if (isSafari) {
         utterance.rate = 1.0;
         utterance.pitch = 0.85;
       } else {
@@ -170,7 +177,7 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
     };
 
     const speakNow = () => {
-      const utterance = new SpeechSynthesisUtterance(clean);
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
 
       utterance.onstart = () => { setIsSpeaking(true); isSpeakingRef.current = true; };
       utterance.onend = onTTSEnd;
@@ -244,10 +251,12 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
     if (!SpeechRecognitionAPI) return;
     setIsSupported(true);
 
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
     const recognition = new SpeechRecognitionAPI();
     recognition.lang = 'es-MX';
-    recognition.continuous = true;
-    recognition.interimResults = true;
+    recognition.continuous = !isMobile;
+    recognition.interimResults = !isMobile;
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
@@ -313,8 +322,15 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
       }
     };
 
-    recognition.onerror = () => {
+    recognition.onerror = ((event: { error: string }) => {
+      if (event.error === 'not-allowed') {
+        alert('Por favor permite el acceso al micrófono en tu navegador');
+        isConversationActiveRef.current = false;
+        setIsListening(false);
+        return;
+      }
       setIsListening(false);
+      if (event.error === 'no-speech') return; // onend will handle restart
       if (
         isConversationActiveRef.current &&
         !isThinkingRef.current &&
@@ -324,7 +340,7 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
           try { recognition.start(); } catch { /* ignore */ }
         }, 500);
       }
-    };
+    }) as () => void;
 
     recognitionRef.current = recognition;
 
@@ -354,6 +370,9 @@ export function useNexoVoice({ onActionDetected }: UseNexoVoiceOptions = {}): Us
       // ── Turn ON ──
       isConversationActiveRef.current = true;
       pendingTranscriptRef.current = '';
+      // Unlock audio context on iOS Safari (must be inside user gesture)
+      const unlock = new SpeechSynthesisUtterance('');
+      window.speechSynthesis.speak(unlock);
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
       isSpeakingRef.current = false;
