@@ -8,6 +8,7 @@ import {
   User,
   Activity,
   FileText,
+  Presentation,
   Settings,
   LogOut,
   Shield,
@@ -21,6 +22,7 @@ const navItems = [
   { href: '/account', label: 'Mi Cuenta', icon: User },
   { href: '/activity', label: 'Actividad', icon: Activity },
   { href: '/documents', label: 'Documentos', icon: FileText },
+  { href: '/pitch', label: 'Presentación', icon: Presentation, isLive: true },
 ];
 
 export const Sidebar = () => {
@@ -49,7 +51,7 @@ export const Sidebar = () => {
         <p className="px-3 mb-3 text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
           Principal
         </p>
-        {navItems.map(({ href, label, icon: Icon, isAI }) => {
+        {navItems.map(({ href, label, icon: Icon, isAI, isLive }) => {
           const isActive = pathname === href;
           return (
             <Link
@@ -88,6 +90,12 @@ export const Sidebar = () => {
                 <span className="ml-auto flex h-2 w-2 relative">
                   <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-purple-400 opacity-50"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+                </span>
+              )}
+              {isLive && (
+                <span className="ml-auto flex items-center gap-1 bg-[#14532D] text-[#4ADE80] text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+                  <span className="w-1 h-1 rounded-full bg-[#4ADE80] animate-pulse" />
+                  LIVE
                 </span>
               )}
             </Link>
